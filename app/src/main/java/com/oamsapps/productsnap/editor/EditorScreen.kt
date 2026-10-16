@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.AutoFixHigh
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FitScreen
@@ -62,6 +63,7 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
 
     BackHandler(enabled = state.isErasing) { vm.finishErase() }
     BackHandler(enabled = state.isCropping) { vm.cancelCrop() }
+    BackHandler(enabled = state.isRefining) { vm.cancelRefine() }
 
     LaunchedEffect(state.message) {
         state.message?.let { snackbar.showSnackbar(it); vm.clearMessage() }
@@ -80,6 +82,12 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                         IconButton(onClick = vm::finishErase, enabled = !state.isApplyingErase) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor")
                         }
+                    },
+                )
+                state.isRefining -> TopAppBar(
+                    title = { BuildTitle("Fix cutout") },
+                    navigationIcon = {
+                        IconButton(onClick = vm::cancelRefine) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Cancel fixes") }
                     },
                 )
                 state.isCropping -> TopAppBar(
@@ -115,6 +123,13 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                             Button(onClick = vm::finishErase, enabled = !state.isApplyingErase, modifier = barModifier) {
                                 Text("Done")
                             }
+                        state.isRefining ->
+                            Row(barModifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                OutlinedButton(onClick = vm::cancelRefine, modifier = Modifier.weight(1f)) { Text("Cancel") }
+                                Button(onClick = vm::applyRefine, enabled = state.refineStrokes.isNotEmpty(), modifier = Modifier.weight(1f)) {
+                                    Text("Done")
+                                }
+                            }
                         state.isCropping ->
                             Row(barModifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 OutlinedButton(onClick = vm::cancelCrop, modifier = Modifier.weight(1f)) { Text("Cancel") }
@@ -127,7 +142,7 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                                 Button(onClick = vm::save, enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()) {
                                     Icon(Icons.Default.Download, null)
                                     Spacer(Modifier.width(8.dp))
-                                    Text(if (premium) "Save full quality" else "Save (1080px, watermark)")
+                                    Text(if (premium) "Save full quality" else "Save (with watermark)")
                                 }
                                 if (!premium) {
                                     TextButton(onClick = onOpenPaywall) { Text("Remove watermark with Premium") }
@@ -163,6 +178,28 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                     controls = { EraseControls(state, vm) },
                 )
 
+            state.isRefining ->
+                ToolLayout(
+                    aspect = original.width / original.height.toFloat(),
+                    modifier = Modifier.padding(padding),
+                    canvas = {
+                        EraseCanvas(
+                            bitmap = state.refinePreview ?: original,
+                            strokes = emptyList(),
+                            brushSizeDp = state.brushSizeDp,
+                            enabled = true,
+                            isWorking = false,
+                            onStroke = vm::addRefineStroke,
+                            brushColor = if (state.refineRestore) RestoreBrushColor else EraseBrushColor,
+                            underlay = original,
+                            checkerboard = true,
+                            description = "Cutout over a faint copy of the photo. Paint to " +
+                                (if (state.refineRestore) "restore" else "remove") + ". Pinch to zoom.",
+                        )
+                    },
+                    controls = { RefineControls(state, vm) },
+                )
+
             state.isCropping ->
                 ToolLayout(
                     aspect = original.width / original.height.toFloat(),
@@ -181,7 +218,16 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
             else ->
                 Column(content, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Preview(state)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    ) {
+                        // Hand fixes for what background removal got wrong (or couldn't do at all).
+                        OutlinedButton(onClick = vm::startRefine, enabled = !state.isRemovingBackground) {
+                            Icon(Icons.Default.Brush, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Fix cutout")
+                        }
                         OutlinedButton(onClick = vm::startCrop, enabled = !state.isRemovingBackground) {
                             Icon(Icons.Default.Crop, null, Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
@@ -281,6 +327,38 @@ private fun CropControls(state: EditorState, vm: EditorViewModel) {
                 Spacer(Modifier.width(8.dp))
                 Text("Fit to product")
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RefineControls(state: EditorState, vm: EditorViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            SegmentedButton(
+                selected = !state.refineRestore,
+                onClick = { vm.setRefineRestore(false) },
+                shape = SegmentedButtonDefaults.itemShape(0, 2),
+            ) { Text("Remove") }
+            SegmentedButton(
+                selected = state.refineRestore,
+                onClick = { vm.setRefineRestore(true) },
+                shape = SegmentedButtonDefaults.itemShape(1, 2),
+            ) { Text("Restore") }
+        }
+        Text(
+            if (state.refineRestore) "Paint over parts of the product that were cut away. They come back exactly as photographed."
+            else "Paint over anything that isn't the product, like a hanger or background between straps.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Column {
+            Text("Brush size", style = MaterialTheme.typography.bodyMedium)
+            Slider(value = state.brushSizeDp, onValueChange = vm::setBrushSize, valueRange = 12f..64f)
+        }
+        TextButton(onClick = vm::undoRefineStroke, enabled = state.refineStrokes.isNotEmpty()) {
+            Text("Undo stroke")
         }
     }
 }
