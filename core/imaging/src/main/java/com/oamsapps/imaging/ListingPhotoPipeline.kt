@@ -47,10 +47,17 @@ class ListingPhotoPipeline(
      * Stage 1, the slow part (ML Kit, about 1.7 s): segment and check the mask. Split from [finish] so a batch
      * can segment the next photo while the previous one is being finished and saved.
      */
-    suspend fun segment(full: Bitmap): Segmented {
-        val small = ImageIo.downscale(full, segmentLongEdge)
-        val seg = segmenter.segment(small)
-        return Segmented(full, small, seg, MaskCheck.check(seg.mask))
+    suspend fun segment(full: Bitmap): Segmented = segment(prepareInput(full))
+
+    /**
+     * The CPU work before ML Kit (the downscaled copy it runs on). Split out so a batch can do it for the next
+     * photo while ML Kit is busy with the current one.
+     */
+    fun prepareInput(full: Bitmap): SegmentInput = SegmentInput(full, ImageIo.downscale(full, segmentLongEdge))
+
+    suspend fun segment(input: SegmentInput): Segmented {
+        val seg = segmenter.segment(input.small)
+        return Segmented(input.full, input.small, seg, MaskCheck.check(seg.mask))
     }
 
     /** Stage 2: edge cleanup, compositing at full size, lighting. CPU only. */
@@ -77,6 +84,12 @@ class ListingPhotoPipeline(
 
     suspend fun process(full: Bitmap): ProcessedPhoto = finish(segment(full))
 }
+
+/** Output of [ListingPhotoPipeline.prepareInput]: the normalized photo and the copy ML Kit runs on. */
+class SegmentInput internal constructor(
+    val full: Bitmap,
+    internal val small: Bitmap,
+)
 
 /** Output of [ListingPhotoPipeline.segment]: the photo, its downscaled copy, the mask and its verdict. */
 class Segmented internal constructor(

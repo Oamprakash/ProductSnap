@@ -18,6 +18,7 @@ import com.oamsapps.productsnap.image.ImageSaver
 import com.oamsapps.productsnap.image.ShadowMaker
 import com.oamsapps.productsnap.image.background.BackgroundPhotos
 import com.oamsapps.productsnap.image.background.BackgroundStyle
+import com.oamsapps.imaging.SegmentInput
 import com.oamsapps.imaging.Segmented
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -31,8 +32,9 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Processes the batch stored in [BatchStore] as a foreground job, in three overlapping stages:
- * 1. load + ML Kit, 2. cutout, crop, shadow, render, 3. encode and save to the gallery.
+ * Processes the batch stored in [BatchStore] as a foreground job, in four overlapping stages:
+ * 1. load and prepare, 2. ML Kit, 3. cutout, crop, shadow, render, 4. encode and save to the gallery.
+ * ML Kit is the slowest step, so the others are arranged to keep it busy.
  * Each stage hands over through a rendezvous channel, so at most one photo waits per stage.
  *
  * Survives the app going to the background. If Android kills the process anyway,
@@ -68,20 +70,27 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         try {
             if (settings.removeBackground) clock.time(RunClock.MODEL) { remover.warmUp() }
             coroutineScope {
+                val loaded = Channel<Loaded>(capacity = 0)
                 val segmented = Channel<Prepared>(capacity = 0)
                 val rendered = Channel<Rendered>(capacity = 0)
 
-                // Stage 1: load and segment.
+                // Stage 1: load the photo and get its ML Kit input ready.
                 launch {
                     for (item in queue) {
                         store.update { it.withStatus(item.id, StoredStatus.WORKING) }
                         publish()
-                        segmented.send(prepare(item, settings, remover, clock))
+                        loaded.send(load(item, settings, remover, clock))
                     }
+                    loaded.close()
+                }
+
+                // Stage 2: ML Kit, kept busy back to back; it is the slowest step.
+                launch {
+                    for (l in loaded) segmented.send(segment(l, remover, clock))
                     segmented.close()
                 }
 
-                // Stage 2: cutout, crop, shadow, render. Photos that stop here are recorded straight away.
+                // Stage 3: cutout, crop, shadow, render. Photos that stop here are recorded straight away.
                 launch {
                     for (p in segmented) {
                         when (val r = finish(p, settings, remover, backgroundPhoto, clock)) {
@@ -92,7 +101,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                     rendered.close()
                 }
 
-                // Stage 3: encode and save.
+                // Stage 4: encode and save.
                 for (r in rendered) {
                     val outcome = save(r, settings, clock)
                     record(r.item, outcome.status, outcome.reason, start.premium)
@@ -127,7 +136,15 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         publish()
     }
 
-    /** A photo after stage 1: loaded and, when needed, segmented. Or the reason it couldn't be. */
+    /** A photo after stage 1: loaded, with its ML Kit input when needed. Or the reason it couldn't be. */
+    private class Loaded(
+        val item: StoredItem,
+        val original: Bitmap?,
+        val input: SegmentInput?,
+        val failure: Outcome? = null,
+    )
+
+    /** A photo after stage 2: loaded and, when needed, segmented. Or the reason it couldn't be. */
     private class Prepared(
         val item: StoredItem,
         val original: Bitmap?,
@@ -140,24 +157,55 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     /** Final status for a photo. */
     private class Outcome(val status: StoredStatus, val reason: String? = null) : StageResult
 
-    /** A photo after stage 2: the finished image, owned by stage 3. */
+    /** A photo after stage 3: the finished image, owned by stage 4. */
     private class Rendered(val item: StoredItem, val bitmap: Bitmap) : StageResult
 
-    private suspend fun prepare(item: StoredItem, settings: ExportSettings, remover: BackgroundRemover, clock: RunClock): Prepared =
-        try {
-            val original = clock.time(RunClock.LOAD) { BitmapLoader.load(File(item.inputPath), maxEdge = settings.maxEdge) }
-            val segmented = if (settings.removeBackground) clock.time(RunClock.SEGMENT) { remover.segment(original) } else null
-            Prepared(item, original, segmented)
+    private suspend fun load(item: StoredItem, settings: ExportSettings, remover: BackgroundRemover, clock: RunClock): Loaded {
+        var original: Bitmap? = null
+        return try {
+            clock.time(RunClock.LOAD) {
+                original = BitmapLoader.load(File(item.inputPath), maxEdge = settings.maxEdge)
+                if (settings.removeBackground) {
+                    // The input holds its own normalized copy, so the decoded photo can go now.
+                    val input = remover.prepareInput(original!!)
+                    original!!.recycle()
+                    original = null
+                    Loaded(item, null, input)
+                } else {
+                    Loaded(item, original, null)
+                }
+            }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: OutOfMemoryError) {
-            Prepared(item, null, null, Outcome(StoredStatus.FAILED, "Not enough memory for this photo"))
-        } catch (e: Exception) {
-            Log.w(TAG, "Photo ${item.id} failed to load or segment", e)
-            Prepared(item, null, null, Outcome(StoredStatus.FAILED, (e.message ?: "Unknown error").take(120)))
+        } catch (e: Throwable) {
+            original?.recycle()
+            Loaded(item, null, null, failure(item, e))
         }
+    }
 
-    /** Stage 2. Frees everything it was given; the rendered image goes to stage 3. */
+    private suspend fun segment(l: Loaded, remover: BackgroundRemover, clock: RunClock): Prepared {
+        if (l.failure != null) return Prepared(l.item, null, null, l.failure)
+        val input = l.input ?: return Prepared(l.item, l.original, null)
+        return try {
+            Prepared(l.item, l.original, clock.time(RunClock.SEGMENT) { remover.segment(input) })
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            input.full.recycle()
+            Prepared(l.item, null, null, failure(l.item, e))
+        }
+    }
+
+    private fun failure(item: StoredItem, e: Throwable): Outcome = when (e) {
+        is OutOfMemoryError -> Outcome(StoredStatus.FAILED, "Not enough memory for this photo")
+        is Exception -> {
+            Log.w(TAG, "Photo ${item.id} failed to load or segment", e)
+            Outcome(StoredStatus.FAILED, (e.message ?: "Unknown error").take(120))
+        }
+        else -> throw e
+    }
+
+    /** Stage 3. Frees everything it was given; the rendered image goes to stage 4. */
     private suspend fun finish(
         p: Prepared,
         settings: ExportSettings,
@@ -166,7 +214,8 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         clock: RunClock,
     ): StageResult {
         p.failure?.let { return it }
-        val original = p.original ?: return Outcome(StoredStatus.FAILED, "Photo couldn't be read")
+        val original = p.original
+        if (p.segmented == null && original == null) return Outcome(StoredStatus.FAILED, "Photo couldn't be read")
         var cutout: Bitmap? = null
         var cropped: Bitmap? = null
         var shadowed: Bitmap? = null
@@ -179,7 +228,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                     else -> return Outcome(StoredStatus.NO_SUBJECT)
                 }
             } else {
-                original
+                original!!
             }
             val content = clock.time(RunClock.CROP_SHADOW) {
                 // Crop after background removal so the crop can follow the product.
@@ -200,14 +249,14 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
             Log.w(TAG, "Photo ${p.item.id} failed", e)
             return Outcome(StoredStatus.FAILED, (e.message ?: "Unknown error").take(120))
         } finally {
-            original.recycle()
+            original?.recycle()
             cutout?.recycle()
             cropped?.recycle()
             shadowed?.recycle()
         }
     }
 
-    /** Stage 3. Frees the rendered image. */
+    /** Stage 4. Frees the rendered image. */
     private suspend fun save(r: Rendered, settings: ExportSettings, clock: RunClock): Outcome =
         try {
             clock.time(RunClock.SAVE) { ImageSaver.saveToGallery(applicationContext, r.bitmap, transparent = settings.transparent) }
@@ -275,7 +324,7 @@ private class RunClock {
 
     companion object {
         const val MODEL = "model"
-        const val LOAD = "load"
+        const val LOAD = "load+prep"
         const val SEGMENT = "ML Kit"
         const val CUTOUT = "cutout"
         const val CROP_SHADOW = "crop+shadow"

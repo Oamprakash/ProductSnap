@@ -7,6 +7,7 @@ import com.oamsapps.imaging.ImageIo
 import com.oamsapps.imaging.ListingPhotoPipeline
 import com.oamsapps.imaging.MaskVerdict
 import com.oamsapps.imaging.MlKitSegmenter
+import com.oamsapps.imaging.SegmentInput
 import com.oamsapps.imaging.Segmented
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -42,11 +43,18 @@ class BackgroundRemover private constructor(context: Context) {
         }
     }
 
-    /** Stage 1 (ML Kit). The returned value owns a normalized copy of [source]; pass it to [finish]. */
-    suspend fun segment(source: Bitmap): Segmented = withContext(Dispatchers.Default) {
-        warmUp()
-        pipeline.segment(ImageIo.normalize(source))
+    /** CPU prep for ML Kit. The returned value owns a normalized copy of [source]; pass it to [segment]. */
+    suspend fun prepareInput(source: Bitmap): SegmentInput = withContext(Dispatchers.Default) {
+        pipeline.prepareInput(ImageIo.normalize(source))
     }
+
+    /** ML Kit only. Pass the result to [finish], which frees the normalized copy. */
+    suspend fun segment(input: SegmentInput): Segmented = withContext(Dispatchers.Default) {
+        warmUp()
+        pipeline.segment(input)
+    }
+
+    suspend fun segment(source: Bitmap): Segmented = segment(prepareInput(source))
 
     /** Stage 2: cleanup and compositing. Frees the normalized copy. */
     suspend fun finish(s: Segmented): Removal = withContext(Dispatchers.Default) {
