@@ -61,6 +61,8 @@ data class BatchState(
     val message: String? = null,
     /** The message is about the free batch limit, so offer an upgrade with it. */
     val messageOffersUpgrade: Boolean = false,
+    /** Per-step timing of the last run, for tuning batch speed. */
+    val timing: String? = null,
 ) {
     val savedCount get() = items.count { it.status == ItemStatus.Saved }
     val finishedCount get() = items.count { it.status != ItemStatus.Pending && it.status != ItemStatus.Working }
@@ -172,7 +174,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
     fun clear() {
         if (!_state.value.canEdit) return
         viewModelScope.launch {
-            store.update { it.copy(items = emptyList()) }
+            store.update { it.copy(items = emptyList(), timing = null) }
             store.pruneInputs()
             _state.update { it.copy(message = null) }
             refresh()
@@ -225,6 +227,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
             val job = store.update { j ->
                 j.copy(
                     premium = isPremium.value,
+                    timing = null,
                     items = j.items.map {
                         if (it.status == StoredStatus.FAILED) it.copy(status = StoredStatus.PENDING, reason = null) else it
                     },
@@ -264,6 +267,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
                 crop = job.settings.crop,
                 shadow = job.settings.shadow,
                 isRunning = running,
+                timing = job.timing,
             )
         }
         job.items.filter { !thumbnails.containsKey(it.id) }.forEach(::loadThumbnail)

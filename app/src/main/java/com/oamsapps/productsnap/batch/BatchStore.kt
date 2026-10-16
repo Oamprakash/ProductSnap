@@ -50,6 +50,8 @@ data class BatchJob(
     val items: List<StoredItem> = emptyList(),
     val settings: BatchSettings = BatchSettings(),
     val premium: Boolean = false,       // frozen when a run starts
+    /** Where the last run's time went, e.g. "10 photos in 31.2 s…"; shown under the progress bar. */
+    val timing: String? = null,
 ) {
     val nextId get() = (items.maxOfOrNull { it.id } ?: -1) + 1
     val savedCount get() = items.count { it.status == StoredStatus.SAVED }
@@ -105,6 +107,7 @@ class BatchStore private constructor(context: Context) {
 
     private fun encode(job: BatchJob) = JSONObject().apply {
         put("premium", job.premium)
+        job.timing?.let { put("timing", it) }
         put("settings", JSONObject().apply {
             put("removeBackground", job.settings.removeBackground)
             put("background", job.settings.background.toJson())
@@ -153,7 +156,12 @@ class BatchStore private constructor(context: Context) {
                 reason = if (o.has("reason")) o.getString("reason") else null,
             )
         }
-        return BatchJob(items = items, settings = settings, premium = json.optBoolean("premium"))
+        return BatchJob(
+            items = items,
+            settings = settings,
+            premium = json.optBoolean("premium"),
+            timing = if (json.has("timing")) json.getString("timing") else null,
+        )
     }
 
     companion object {

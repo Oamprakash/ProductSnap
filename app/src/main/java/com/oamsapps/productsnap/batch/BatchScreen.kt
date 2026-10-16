@@ -349,6 +349,9 @@ private fun BatchBottomBar(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            if (!state.isRunning && state.timing != null) {
+                Text(state.timing, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             when {
                 state.isRunning ->
                     OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Stop") }

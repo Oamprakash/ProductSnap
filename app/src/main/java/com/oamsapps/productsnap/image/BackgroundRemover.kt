@@ -35,11 +35,16 @@ class BackgroundRemover(context: Context) {
     private val prepareLock = Mutex()
     private var prepared = false
 
-    /** Stage 1 (ML Kit). The returned value owns a normalized copy of [source]; pass it to [finish]. */
-    suspend fun segment(source: Bitmap): Segmented = withContext(Dispatchers.Default) {
+    /** Waits for the ML Kit model (downloaded by Play services) and runs it once. Called by [segment] anyway. */
+    suspend fun warmUp() = withContext(Dispatchers.Default) {
         prepareLock.withLock {
             if (!prepared) { segmenter.prepare(); prepared = true }
         }
+    }
+
+    /** Stage 1 (ML Kit). The returned value owns a normalized copy of [source]; pass it to [finish]. */
+    suspend fun segment(source: Bitmap): Segmented = withContext(Dispatchers.Default) {
+        warmUp()
         pipeline.segment(ImageIo.normalize(source))
     }
 
