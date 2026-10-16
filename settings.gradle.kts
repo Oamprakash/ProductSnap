@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "ProductSnap"
 include(":app")
+include(":core:imaging")

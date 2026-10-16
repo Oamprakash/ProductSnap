@@ -1,0 +1,13 @@
+# Build and IDE output (several of these are already tracked; untrack with `git rm --cached`)
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+captures/
+app/release/
+# Signing keys must never be committed
+*.jks
+*.keystore
+productSnapKeystore

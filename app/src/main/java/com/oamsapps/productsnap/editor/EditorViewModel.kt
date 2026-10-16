@@ -84,7 +84,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<EditorState> = _state.asStateFlow()
 
     val isPremium = PremiumManager.isPremium
-    private val remover = BackgroundRemover()
+    private val remover = BackgroundRemover(app)
     private val eraser = MagicEraser()
 
     init {
