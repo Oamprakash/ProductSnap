@@ -110,7 +110,6 @@ class BatchStore private constructor(context: Context) {
             put("squareCanvas", job.settings.squareCanvas)
             put("brightness", job.settings.adjustments.brightness.toDouble())
             put("contrast", job.settings.adjustments.contrast.toDouble())
-            put("saturation", job.settings.adjustments.saturation.toDouble())
             put("crop", job.settings.crop.name)
             put("shadow", job.settings.shadow)
         })
@@ -138,7 +137,6 @@ class BatchStore private constructor(context: Context) {
             adjustments = Adjustments(
                 brightness = s.getDouble("brightness").toFloat(),
                 contrast = s.getDouble("contrast").toFloat(),
-                saturation = s.getDouble("saturation").toFloat(),
             ),
             crop = runCatching { BatchCrop.valueOf(s.optString("crop", "NONE")) }.getOrDefault(BatchCrop.NONE),
             shadow = s.optBoolean("shadow", true),

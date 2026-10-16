@@ -13,6 +13,7 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import com.oamsapps.productsnap.billing.PremiumManager
 import com.oamsapps.productsnap.editor.EditorState
+import com.oamsapps.productsnap.billing.FreeAllowance
 import com.oamsapps.productsnap.image.Adjustments
 import com.oamsapps.productsnap.image.BatchCrop
 import com.oamsapps.productsnap.image.background.BackgroundPhotos
@@ -80,6 +81,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<BatchState> = _state.asStateFlow()
 
     val isPremium = PremiumManager.isPremium
+    val freeAvailable = FreeAllowance.available
 
     private val thumbnails = ConcurrentHashMap<Int, Bitmap>()
     private val loadingThumbnails = ConcurrentHashMap.newKeySet<Int>()
@@ -211,6 +213,10 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
 
     fun start() {
         if (!_state.value.canEdit) return
+        if (!isPremium.value && FreeAllowance.remaining() == 0) {
+            _state.update { it.copy(message = FREE_USED_MESSAGE, messageOffersUpgrade = true) }
+            return
+        }
         _state.update { it.copy(isRunning = true, message = null) }
         viewModelScope.launch {
             val job = store.update { j ->
@@ -301,11 +307,13 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun currentLimit() =
-        if (isPremium.value) PremiumManager.PREMIUM_BATCH_LIMIT else PremiumManager.FREE_BATCH_LIMIT
+        if (isPremium.value) PremiumManager.PREMIUM_BATCH_LIMIT else FreeAllowance.remaining()
 
-    private fun limitMessage(limit: Int) =
-        if (isPremium.value) "A batch holds up to $limit photos. The extra photos weren't added."
-        else "Free batches hold $limit photos. Premium handles up to ${PremiumManager.PREMIUM_BATCH_LIMIT}."
+    private fun limitMessage(limit: Int) = when {
+        isPremium.value -> "A batch holds up to $limit photos. The extra photos weren't added."
+        limit == 0 -> FREE_USED_MESSAGE
+        else -> "Your free photo is a batch of $limit. Premium handles up to ${PremiumManager.PREMIUM_BATCH_LIMIT}."
+    }
 
     private fun StoredItem.toItemStatus(running: Boolean): ItemStatus = when (status) {
         StoredStatus.PENDING -> ItemStatus.Pending
@@ -313,5 +321,9 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
         StoredStatus.SAVED -> ItemStatus.Saved
         StoredStatus.NO_SUBJECT -> ItemStatus.NoSubject
         StoredStatus.FAILED -> ItemStatus.Failed(reason ?: "Unknown error")
+    }
+
+    private companion object {
+        const val FREE_USED_MESSAGE = "You've used your free photo. Go Premium to save more, without the watermark."
     }
 }

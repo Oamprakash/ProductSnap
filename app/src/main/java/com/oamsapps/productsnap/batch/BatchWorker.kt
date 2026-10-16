@@ -7,6 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.oamsapps.productsnap.billing.FreeAllowance
 import com.oamsapps.productsnap.image.BackgroundRemover
 import com.oamsapps.productsnap.image.BitmapLoader
 import com.oamsapps.productsnap.image.Cropper
@@ -53,6 +54,8 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         val remover = BackgroundRemover(applicationContext)
         try {
             for (item in queue) {
+                // Free users get one finished photo; anything after it waits for Premium.
+                if (!start.premium && FreeAllowance.remaining() == 0) break
                 store.update { it.withStatus(item.id, StoredStatus.WORKING) }
                 publish()
 
@@ -70,6 +73,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                 }
 
                 val job = store.update { it.withStatus(item.id, status, reason) }
+                if (status == StoredStatus.SAVED && !start.premium) FreeAllowance.markUsed(applicationContext)
                 // Keep the copy only if the user might retry it.
                 if (status != StoredStatus.FAILED) File(item.inputPath).delete()
                 showProgress(job)
