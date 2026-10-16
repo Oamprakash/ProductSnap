@@ -7,7 +7,7 @@ Android photo editor focused on one job: clean product photos for online sellers
 - On-device background removal (ML Kit Subject Segmentation, no cloud cost)
 - Background swap: plain colours (incl. transparent → PNG), studio lights, gradients, or your own photo with optional blur; non-plain backgrounds switch on background removal automatically (editor and batch)
 - 1:1 marketplace canvas with padding
-- Magic eraser: paint over price tags, dust, cables or clutter and it's filled from the surrounding background (on-device, no model download), with stroke undo, up to 3 erase undos, and pinch-to-zoom (brush stays the same size on screen, so zooming in gives finer strokes). If strokes touch the item itself, the app asks first: hiding stains or wear misrepresents condition
+- Magic eraser: paint over price tags, dust, cables or clutter and it's filled from the surrounding background (on-device, no model download), with stroke undo, up to 3 erase undos, and pinch-to-zoom (brush stays the same size on screen, so zooming in gives finer strokes). The product is protected: it's found first and put back over the result, so stains or wear can't be erased
 - Crop in the editor: drag corners/edges/middle, presets Free, 1:1, 4:5, 3:4, 16:9, and "Fit to product" when the background is removed
 - Crop in batch: Off, Fit product (trims empty space), 1:1, 4:5, 3:4; ratio crops are centred on the product
 - Pinch-to-zoom and double-tap zoom on the editor preview
@@ -18,7 +18,7 @@ Android photo editor focused on one job: clean product photos for online sellers
 - Batch runs in WorkManager as a foreground job: keeps going in the background, shows a progress notification with Stop, and resumes after process death
 - Share one photo into the editor, or several straight into batch
 - Soft shadow under the product (editor and batch), so swapped backgrounds don't look pasted on
-- Premium subscription via Google Play Billing: paywall with plans and free trial, restore, manage subscription; free = one finished photo at full quality with a watermark, then the paywall (processing and previews stay free); premium = unlimited saves, no watermark, 30-photo batches
+- Premium subscription via Google Play Billing: paywall with plans and free trial, restore, manage subscription; free = one finished photo at full quality with a large diagonal watermark across the product, then the paywall (processing and previews stay free); premium = unlimited saves, no watermark, 30-photo batches
 
 ## Setup
 1. Open the folder in Android Studio (Ladybug or newer). If it asks for the Gradle wrapper, run `gradle wrapper` once or let Studio create it.

@@ -70,22 +70,6 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
         if (state.paywallRequested) { onOpenPaywall(); vm.paywallShown() }
     }
 
-    if (state.confirmEraseOnItem) {
-        AlertDialog(
-            onDismissRequest = vm::dismissEraseOnItem,
-            title = { Text("Erase part of the item?") },
-            text = {
-                Text(
-                    "Your strokes touch the item itself. Removing stains, holes, pilling or wear hides the real " +
-                        "condition from buyers, which can lead to returns, disputes or a marketplace removing the listing. " +
-                        "Use the eraser for background clutter, tags or dust."
-                )
-            },
-            confirmButton = { TextButton(onClick = { vm.applyErase(confirmed = true) }) { Text("Erase anyway") } },
-            dismissButton = { TextButton(onClick = vm::dismissEraseOnItem) { Text("Cancel") } },
-        )
-    }
-
     Scaffold(
         topBar = {
             when {
@@ -305,8 +289,8 @@ private fun EraseControls(state: EditorState, vm: EditorViewModel) {
     val busy = state.isApplyingErase
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            "Paint over clutter, price tags or dust, then tap Erase. Pinch to zoom in on small spots. " +
-                "Don't hide stains, holes or wear: buyers should see the item's real condition.",
+            "Paint over background clutter, then tap Erase. Pinch to zoom in on small spots. " +
+                "The product itself is protected, so its real condition stays visible to buyers.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -328,7 +312,7 @@ private fun EraseControls(state: EditorState, vm: EditorViewModel) {
             }
         }
         Button(
-            onClick = { vm.applyErase() },
+            onClick = vm::applyErase,
             enabled = state.eraseStrokes.isNotEmpty() && !busy,
             modifier = Modifier.fillMaxWidth(),
         ) {

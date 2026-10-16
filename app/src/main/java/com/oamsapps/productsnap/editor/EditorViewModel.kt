@@ -62,8 +62,6 @@ data class EditorState(
     val eraseStrokes: List<EraseStroke> = emptyList(),
     val brushSizeDp: Float = 28f,
     val isApplyingErase: Boolean = false,
-    /** Strokes cover part of the item: ask before erasing, since it can hide stains or damage. */
-    val confirmEraseOnItem: Boolean = false,
     /** Set when a save needs Premium; the screen opens the paywall and clears it. */
     val paywallRequested: Boolean = false,
     // Crop
@@ -246,25 +244,31 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setBrushSize(dp: Float) = _state.update { it.copy(brushSizeDp = dp) }
 
-    fun applyErase(confirmed: Boolean = false) {
+    /**
+     * Erases background clutter only. The product is found first (the existing cutout, or a fresh one) and its
+     * pixels are put back over the filled result, so strokes that stray onto the item can't change it: stains,
+     * holes and wear stay visible to buyers. Without a product (none found), the eraser works as before.
+     */
+    fun applyErase() {
         val s = _state.value
         val original = s.original ?: return
         if (s.eraseStrokes.isEmpty() || s.isApplyingErase) return
         val strokes = s.eraseStrokes
-        if (!confirmed && touchesItem(s.cutout, strokes)) {
-            _state.update { it.copy(confirmEraseOnItem = true) }
-            return
-        }
-        _state.update { it.copy(confirmEraseOnItem = false) }
 
         viewModelScope.launch {
             _state.update { it.copy(isApplyingErase = true, message = null) }
-            runCatching { eraser.erase(original, strokes) }
-                .onSuccess { result ->
+            runCatching {
+                val product = s.cutout ?: runCatching { remover.removeBackground(original) }.getOrNull()
+                val filled = eraser.erase(original, strokes)
+                (if (product != null) keepProduct(filled, product) else filled) to product
+            }
+                .onSuccess { (result, product) ->
                     _state.update {
-                        it.copy(
+                        if (it.original !== original) it.copy(isApplyingErase = false)
+                        else it.copy(
                             original = result,
-                            cutout = null, // the old cutout no longer matches the photo
+                            // The product's pixels are unchanged, so its cutout still matches the photo.
+                            cutout = product,
                             eraseStrokes = emptyList(),
                             isApplyingErase = false,
                             history = (it.history + original).takeLast(MAX_UNDO),
@@ -283,20 +287,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun dismissEraseOnItem() = _state.update { it.copy(confirmEraseOnItem = false) }
-
-    /**
-     * True when any stroke point lands on the item (cutout alpha above half). Only known once a cutout exists;
-     * the erase screen also shows a standing reminder for photos without one.
-     */
-    private fun touchesItem(cutout: Bitmap?, strokes: List<EraseStroke>): Boolean {
-        if (cutout == null || cutout.isRecycled) return false
-        for (stroke in strokes) for (p in stroke.points) {
-            val x = p.x.roundToInt()
-            val y = p.y.roundToInt()
-            if (x in 0 until cutout.width && y in 0 until cutout.height && (cutout.getPixel(x, y) ushr 24) > 128) return true
-        }
-        return false
+    /** Draws the product (a same-size cutout) back over the erased photo. */
+    private fun keepProduct(filled: Bitmap, product: Bitmap): Bitmap {
+        val out = if (filled.isMutable) filled else filled.copy(Bitmap.Config.ARGB_8888, true)
+        android.graphics.Canvas(out).drawBitmap(product, null, android.graphics.Rect(0, 0, out.width, out.height), null)
+        return out
     }
 
     // ---------- Crop ----------

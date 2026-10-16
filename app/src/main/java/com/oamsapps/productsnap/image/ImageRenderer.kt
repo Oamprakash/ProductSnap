@@ -100,15 +100,32 @@ object ImageRenderer {
         }
     }
 
+    /**
+     * Free exports: the name in large letters, diagonally across the middle where the product sits, so it
+     * can't be cropped off. Semi-transparent white with a dark outline, so it reads on white and dark alike
+     * while the product stays visible underneath.
+     */
     private fun drawWatermark(canvas: Canvas, text: String, w: Int, h: Int) {
-        val size = max(w, h) * 0.028f
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = size
+        val diagonal = kotlin.math.hypot(w.toFloat(), h.toFloat())
+        val angle = -Math.toDegrees(kotlin.math.atan2(h.toDouble(), w.toDouble())).toFloat()
+        val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = Typeface.DEFAULT_BOLD
-            color = 0x99FFFFFF.toInt()
-            setShadowLayer(size * 0.15f, 0f, 0f, 0x66000000)
-            textAlign = Paint.Align.RIGHT
+            textAlign = Paint.Align.CENTER
+            color = 0x73FFFFFF
         }
-        canvas.drawText(text, w - size, h - size, paint)
+        // Size the text to span about 70% of the diagonal.
+        fill.textSize = 100f
+        fill.textSize = 100f * (diagonal * 0.7f) / fill.measureText(text)
+        val outline = Paint(fill).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = fill.textSize * 0.03f
+            color = 0x4D000000
+        }
+        val baseline = -(fill.descent() + fill.ascent()) / 2f
+        canvas.save()
+        canvas.rotate(angle, w / 2f, h / 2f)
+        canvas.drawText(text, w / 2f, h / 2f + baseline, outline)
+        canvas.drawText(text, w / 2f, h / 2f + baseline, fill)
+        canvas.restore()
     }
 }
