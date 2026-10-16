@@ -1,5 +1,6 @@
 package com.oamsapps.productsnap.editor
 
+import com.oamsapps.productsnap.ui.BuildTitle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -74,7 +75,7 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
         topBar = {
             when {
                 state.isErasing -> TopAppBar(
-                    title = { Text("Magic eraser") },
+                    title = { BuildTitle("Magic eraser") },
                     navigationIcon = {
                         IconButton(onClick = vm::finishErase, enabled = !state.isApplyingErase) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor")
@@ -82,7 +83,7 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                     },
                 )
                 state.isCropping -> TopAppBar(
-                    title = { Text("Crop") },
+                    title = { BuildTitle("Crop") },
                     navigationIcon = {
                         IconButton(onClick = vm::cancelCrop) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Cancel crop") }
                     },
@@ -91,7 +92,7 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                     },
                 )
                 else -> TopAppBar(
-                    title = { Text("ProductSnap") },
+                    title = { BuildTitle("ProductSnap") },
                     actions = {
                         if (state.canUndo) {
                             IconButton(onClick = vm::undo) { Icon(Icons.AutoMirrored.Filled.Undo, "Undo last edit") }

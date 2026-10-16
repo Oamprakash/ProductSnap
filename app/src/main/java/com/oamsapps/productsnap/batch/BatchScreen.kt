@@ -1,5 +1,6 @@
 package com.oamsapps.productsnap.batch
 
+import com.oamsapps.productsnap.ui.BuildTitle
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -85,7 +86,7 @@ fun BatchScreen(vm: BatchViewModel, onBack: () -> Unit, onOpenPaywall: () -> Uni
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit many photos") },
+                title = { BuildTitle("Edit many photos") },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                 },
