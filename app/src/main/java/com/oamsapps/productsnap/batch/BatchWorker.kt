@@ -50,7 +50,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         val backgroundPhoto = (settings.background as? BackgroundStyle.Photo)?.let {
             runCatching { BackgroundPhotos.prepare(it, settings.maxEdge) }.getOrNull()
         }
-        val remover = BackgroundRemover()
+        val remover = BackgroundRemover(applicationContext)
         try {
             for (item in queue) {
                 store.update { it.withStatus(item.id, StoredStatus.WORKING) }

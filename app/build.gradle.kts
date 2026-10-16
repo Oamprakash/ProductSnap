@@ -53,6 +53,9 @@ dependencies {
     // Batch runs as a foreground job that survives the app going to the background
     implementation("androidx.work:work-runtime-ktx:2.10.0")
 
+    // Tested photo pipeline: segmentation, mask check, edge cleanup, compositing
+    implementation(project(":core:imaging"))
+
     // On-device background removal (model downloaded by Play services)
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
 
