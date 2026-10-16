@@ -4,6 +4,14 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Short commit ID, shown in the app's header and version name so every test report names its build.
+// CI sets GITHUB_SHA; local builds ask git.
+val buildId: String = System.getenv("GITHUB_SHA")?.take(7)
+    ?: runCatching {
+        providers.exec { commandLine("git", "rev-parse", "--short=7", "HEAD") }.standardOutput.asText.get().trim()
+    }.getOrNull()?.takeIf { it.isNotEmpty() }
+    ?: "local"
+
 android {
     namespace = "com.oamsapps.productsnap"
     compileSdk = 35
@@ -13,7 +21,8 @@ android {
         minSdk = 29 // MediaStore scoped storage + ImageDecoder without legacy paths
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "0.1.0-$buildId"
+        buildConfigField("String", "BUILD_ID", "\"$buildId\"")
     }
 
     buildTypes {
