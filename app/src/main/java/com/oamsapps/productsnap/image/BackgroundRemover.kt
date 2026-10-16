@@ -25,9 +25,9 @@ class Removal(val cutout: Bitmap?, val verdict: MaskVerdict) {
  * source's own size. (The old version used ML Kit's foregroundBitmap, which came back striped on the test phone.)
  *
  * Batch uses [segment] and [finish] separately so ML Kit can work on the next photo while the previous one is
- * finished; the editor uses [remove].
+ * finished; the editor uses [remove]. Get it with [shared].
  */
-class BackgroundRemover(context: Context) {
+class BackgroundRemover private constructor(context: Context) {
 
     private val segmenter = MlKitSegmenter(context.applicationContext)
     // The app has its own brightness/contrast controls, so auto-brighten stays off here for now.
@@ -69,7 +69,15 @@ class BackgroundRemover(context: Context) {
     /** The subject on a transparent background at the source's size, or null if there's no usable cutout. */
     suspend fun removeBackground(source: Bitmap): Bitmap? = remove(source).cutout
 
-    fun close() = segmenter.close()
+    companion object {
+        private const val TAG = "BackgroundRemover"
+        @Volatile private var instance: BackgroundRemover? = null
 
-    private companion object { const val TAG = "BackgroundRemover" }
+        /**
+         * One remover for the whole process, shared by the editor and batch and never closed, so the ML Kit
+         * model is loaded and warmed up once. A fresh one per batch run cost about 4 s before the first photo.
+         */
+        fun shared(context: Context): BackgroundRemover =
+            instance ?: synchronized(this) { instance ?: BackgroundRemover(context.applicationContext).also { instance = it } }
+    }
 }

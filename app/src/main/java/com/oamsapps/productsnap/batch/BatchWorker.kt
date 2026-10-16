@@ -64,7 +64,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         val backgroundPhoto = (settings.background as? BackgroundStyle.Photo)?.let {
             runCatching { BackgroundPhotos.prepare(it, settings.maxEdge) }.getOrNull()
         }
-        val remover = BackgroundRemover(applicationContext)
+        val remover = BackgroundRemover.shared(applicationContext)
         try {
             if (settings.removeBackground) clock.time(RunClock.MODEL) { remover.warmUp() }
             coroutineScope {
@@ -107,7 +107,6 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
             }
             throw e
         } finally {
-            remover.close()
             backgroundPhoto?.recycle()
         }
 

@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.batch
 
+import android.util.Log
+import com.oamsapps.productsnap.image.BackgroundRemover
 import android.app.Application
 import android.graphics.Bitmap
 import android.media.ThumbnailUtils
@@ -93,6 +95,11 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
     private var wasRunning: Boolean? = null
 
     init {
+        // Load and warm up the cutout model now, so tapping Save starts on the first photo straight away.
+        viewModelScope.launch {
+            runCatching { BackgroundRemover.shared(app).warmUp() }
+                .onFailure { Log.w("BatchViewModel", "Model warm-up failed; the batch will retry it", it) }
+        }
         viewModelScope.launch {
             workManager.getWorkInfosForUniqueWorkFlow(BatchWorker.UNIQUE_NAME).collect { infos ->
                 val running = infos.any { !it.state.isFinished }

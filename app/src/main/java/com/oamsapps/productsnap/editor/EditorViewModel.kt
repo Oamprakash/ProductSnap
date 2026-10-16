@@ -87,7 +87,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<EditorState> = _state.asStateFlow()
 
     val isPremium = PremiumManager.isPremium
-    private val remover = BackgroundRemover(app)
+    private val remover = BackgroundRemover.shared(app)
     private val eraser = MagicEraser()
 
     init {
@@ -405,10 +405,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(isSaving = false, message = "Couldn't save: ${e.message}") }
             }
         }
-    }
-
-    override fun onCleared() {
-        remover.close()
     }
 
     private fun PixelRect.normalizedIn(bmp: Bitmap) = Rect(
