@@ -39,9 +39,14 @@ import com.oamsapps.productsnap.image.BatchCrop
 fun BatchScreen(vm: BatchViewModel, onBack: () -> Unit, onOpenPaywall: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val premium by vm.isPremium.collectAsStateWithLifecycle()
+    val freeAvailable by vm.freeAvailable.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val limit = if (premium) PremiumManager.PREMIUM_BATCH_LIMIT else PremiumManager.FREE_BATCH_LIMIT
+    val limit = when {
+        premium -> PremiumManager.PREMIUM_BATCH_LIMIT
+        freeAvailable -> PremiumManager.FREE_RESULTS
+        else -> 0
+    }
 
     // Picker always allows the premium max; the ViewModel trims to the user's limit and explains why.
     val picker = rememberLauncherForActivityResult(
@@ -114,10 +119,10 @@ fun BatchScreen(vm: BatchViewModel, onBack: () -> Unit, onOpenPaywall: () -> Uni
         ) {
             item { SettingsCard(state, vm, onChoosePhoto = pickBackground) }
 
-            if (!premium) item { UpsellCard(onUnlock = onOpenPaywall) }
+            if (!premium) item { UpsellCard(freeAvailable = freeAvailable, onUnlock = onOpenPaywall) }
 
             if (state.items.isEmpty() && !state.isImporting) {
-                item { EmptyPrompt(limit = limit, onPick = pick) }
+                item { EmptyPrompt(limit = limit, onPick = pick, onUnlock = onOpenPaywall) }
             } else {
                 itemsIndexed(state.items, key = { _, item -> item.id }) { index, item ->
                     BatchRow(
@@ -166,7 +171,7 @@ private fun SettingsCard(state: BatchState, vm: BatchViewModel, onChoosePhoto: (
             if (!state.adjustments.isNeutral) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        "Brightness, contrast and saturation from the editor",
+                        "Brightness and contrast from the editor",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
@@ -223,18 +228,19 @@ private fun SettingSwitch(label: String, checked: Boolean, enabled: Boolean, onC
 }
 
 @Composable
-private fun UpsellCard(onUnlock: () -> Unit) {
+private fun UpsellCard(freeAvailable: Boolean, onUnlock: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                "Free: ${PremiumManager.FREE_BATCH_LIMIT} photos per batch, ${PremiumManager.FREE_MAX_EDGE}px with watermark",
+                if (freeAvailable) "Free: your first photo, full quality with a watermark"
+                else "You've used your free photo",
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                "Premium: ${PremiumManager.PREMIUM_BATCH_LIMIT} photos per batch, full quality, no watermark",
+                "Premium: unlimited photos, batches of ${PremiumManager.PREMIUM_BATCH_LIMIT}, no watermark",
                 style = MaterialTheme.typography.bodyMedium,
             )
             Button(onClick = onUnlock) { Text("See Premium plans") }
@@ -243,18 +249,23 @@ private fun UpsellCard(onUnlock: () -> Unit) {
 }
 
 @Composable
-private fun EmptyPrompt(limit: Int, onPick: () -> Unit) {
+private fun EmptyPrompt(limit: Int, onPick: () -> Unit, onUnlock: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().padding(vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            "Pick up to $limit photos. Each one is saved with the settings above.",
+            when (limit) {
+                0 -> "You've used your free photo. Premium edits whole batches without a watermark."
+                1 -> "Pick a photo to try it free. It's saved with the settings above, with a watermark."
+                else -> "Pick up to $limit photos. Each one is saved with the settings above."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(16.dp))
-        Button(onClick = onPick) { Text("Choose photos") }
+        if (limit == 0) Button(onClick = onUnlock) { Text("See Premium plans") }
+        else Button(onClick = onPick) { Text(if (limit == 1) "Choose a photo" else "Choose photos") }
     }
 }
 

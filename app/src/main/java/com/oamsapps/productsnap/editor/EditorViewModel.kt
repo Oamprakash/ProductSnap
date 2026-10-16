@@ -7,6 +7,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.oamsapps.productsnap.billing.PremiumManager
+import com.oamsapps.productsnap.billing.FreeAllowance
 import com.oamsapps.productsnap.image.Adjustments
 import com.oamsapps.productsnap.image.BackgroundRemover
 import com.oamsapps.productsnap.image.BitmapLoader
@@ -61,6 +62,10 @@ data class EditorState(
     val eraseStrokes: List<EraseStroke> = emptyList(),
     val brushSizeDp: Float = 28f,
     val isApplyingErase: Boolean = false,
+    /** Strokes cover part of the item: ask before erasing, since it can hide stains or damage. */
+    val confirmEraseOnItem: Boolean = false,
+    /** Set when a save needs Premium; the screen opens the paywall and clears it. */
+    val paywallRequested: Boolean = false,
     // Crop
     val isCropping: Boolean = false,
     val cropRect: Rect = FullFrame,      // normalised 0..1
@@ -189,7 +194,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setSquare(on: Boolean) = _state.update { it.copy(squareCanvas = on) }
     fun setBrightness(v: Float) = _state.update { it.copy(adjustments = it.adjustments.copy(brightness = v)) }
     fun setContrast(v: Float) = _state.update { it.copy(adjustments = it.adjustments.copy(contrast = v)) }
-    fun setSaturation(v: Float) = _state.update { it.copy(adjustments = it.adjustments.copy(saturation = v)) }
     fun resetAdjustments() = _state.update { it.copy(adjustments = Adjustments()) }
     fun clearMessage() = _state.update { it.copy(message = null) }
 
@@ -242,11 +246,16 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setBrushSize(dp: Float) = _state.update { it.copy(brushSizeDp = dp) }
 
-    fun applyErase() {
+    fun applyErase(confirmed: Boolean = false) {
         val s = _state.value
         val original = s.original ?: return
         if (s.eraseStrokes.isEmpty() || s.isApplyingErase) return
         val strokes = s.eraseStrokes
+        if (!confirmed && touchesItem(s.cutout, strokes)) {
+            _state.update { it.copy(confirmEraseOnItem = true) }
+            return
+        }
+        _state.update { it.copy(confirmEraseOnItem = false) }
 
         viewModelScope.launch {
             _state.update { it.copy(isApplyingErase = true, message = null) }
@@ -272,6 +281,22 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
         }
+    }
+
+    fun dismissEraseOnItem() = _state.update { it.copy(confirmEraseOnItem = false) }
+
+    /**
+     * True when any stroke point lands on the item (cutout alpha above half). Only known once a cutout exists;
+     * the erase screen also shows a standing reminder for photos without one.
+     */
+    private fun touchesItem(cutout: Bitmap?, strokes: List<EraseStroke>): Boolean {
+        if (cutout == null || cutout.isRecycled) return false
+        for (stroke in strokes) for (p in stroke.points) {
+            val x = p.x.roundToInt()
+            val y = p.y.roundToInt()
+            if (x in 0 until cutout.width && y in 0 until cutout.height && (cutout.getPixel(x, y) ushr 24) > 128) return true
+        }
+        return false
     }
 
     // ---------- Crop ----------
@@ -344,9 +369,16 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- Save ----------
 
+    fun paywallShown() = _state.update { it.copy(paywallRequested = false) }
+
     fun save() {
         val s = _state.value
         val content = s.displayBitmap ?: return
+        val freeSave = !isPremium.value
+        if (freeSave && FreeAllowance.remaining() == 0) {
+            _state.update { it.copy(paywallRequested = true) }
+            return
+        }
         val settings = ExportSettings(
             removeBackground = s.useCutout,
             background = s.background,
@@ -365,7 +397,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     out.recycle()
                 }
             }.onSuccess {
-                _state.update { it.copy(isSaving = false, message = "Saved to Pictures/ProductSnap") }
+                if (freeSave) FreeAllowance.markUsed(getApplication())
+                val message = if (freeSave) "Saved your free photo to Pictures/ProductSnap. Go Premium to save more without the watermark."
+                else "Saved to Pictures/ProductSnap"
+                _state.update { it.copy(isSaving = false, message = message) }
             }.onFailure { e ->
                 _state.update { it.copy(isSaving = false, message = "Couldn't save: ${e.message}") }
             }

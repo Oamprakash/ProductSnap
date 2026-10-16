@@ -7,18 +7,18 @@ Android photo editor focused on one job: clean product photos for online sellers
 - On-device background removal (ML Kit Subject Segmentation, no cloud cost)
 - Background swap: plain colours (incl. transparent → PNG), studio lights, gradients, or your own photo with optional blur; non-plain backgrounds switch on background removal automatically (editor and batch)
 - 1:1 marketplace canvas with padding
-- Magic eraser: paint over price tags, dust, cables or clutter and it's filled from the surrounding background (on-device, no model download), with stroke undo, up to 3 erase undos, and pinch-to-zoom (brush stays the same size on screen, so zooming in gives finer strokes)
+- Magic eraser: paint over price tags, dust, cables or clutter and it's filled from the surrounding background (on-device, no model download), with stroke undo, up to 3 erase undos, and pinch-to-zoom (brush stays the same size on screen, so zooming in gives finer strokes). If strokes touch the item itself, the app asks first: hiding stains or wear misrepresents condition
 - Crop in the editor: drag corners/edges/middle, presets Free, 1:1, 4:5, 3:4, 16:9, and "Fit to product" when the background is removed
 - Crop in batch: Off, Fit product (trims empty space), 1:1, 4:5, 3:4; ratio crops are centred on the product
 - Pinch-to-zoom and double-tap zoom on the editor preview
 - Undo for the last 3 crops/erases
-- Brightness / contrast / saturation (live preview uses the same matrix as export)
+- Brightness / contrast (live preview uses the same matrix as export). No saturation: it changes the item's colour
 - Save to Pictures/ProductSnap via MediaStore
-- Batch mode: up to 30 photos (3 on free), one set of settings, saved one by one with per-photo status, stop/retry
+- Batch mode: up to 30 photos (premium), one set of settings, saved one by one with per-photo status, stop/retry
 - Batch runs in WorkManager as a foreground job: keeps going in the background, shows a progress notification with Stop, and resumes after process death
 - Share one photo into the editor, or several straight into batch
 - Soft shadow under the product (editor and batch), so swapped backgrounds don't look pasted on
-- Premium subscription via Google Play Billing: paywall with plans and free trial, restore, manage subscription; free = 1080px + watermark + 3-photo batches, premium = full res + 30-photo batches
+- Premium subscription via Google Play Billing: paywall with plans and free trial, restore, manage subscription; free = one finished photo at full quality with a watermark, then the paywall (processing and previews stay free); premium = unlimited saves, no watermark, 30-photo batches
 
 ## Setup
 1. Open the folder in Android Studio (Ladybug or newer). If it asks for the Gradle wrapper, run `gradle wrapper` once or let Studio create it.
@@ -57,7 +57,7 @@ Best on plain or repeating backgrounds (studio shots, tabletops, walls). For lar
 Billing only works for a build uploaded to Play with the same application ID and signing key.
 1. Upload a signed build to the **Internal testing** track.
 2. Monetize › Subscriptions › Create subscription with product ID `productsnap_premium`.
-3. Add two auto-renewing base plans, e.g. `monthly` (1 month) and `yearly` (1 year), and set prices.
+3. Add two auto-renewing base plans, `weekly` (1 week) and `yearly` (1 year), and set prices. The paywall lists whatever base plans Play returns, longest first.
 4. Add a free-trial offer to the yearly plan (eligibility: new customers). The paywall shows a trial automatically when Play says the user is eligible, and labels the button "Start free trial".
 5. Activate the base plans and offer.
 6. Settings › License testing: add your Google account(s) so test purchases aren't charged and renew quickly.
