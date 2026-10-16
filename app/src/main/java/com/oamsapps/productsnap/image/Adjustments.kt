@@ -2,17 +2,17 @@ package com.oamsapps.productsnap.image
 
 import android.graphics.ColorMatrix
 
-/** Slider values. 0f = neutral for all three. Range -1f..1f. */
+/**
+ * Slider values. 0f = neutral. Range -1f..1f.
+ * No saturation control: it changes the item's colour, and buyers rely on photos to judge colour.
+ */
 data class Adjustments(
     val brightness: Float = 0f,
     val contrast: Float = 0f,
-    val saturation: Float = 0f,
 ) {
     /** Single matrix used by BOTH live preview and export, so they always match. */
     fun toColorMatrix(): ColorMatrix {
         val result = ColorMatrix()
-
-        result.postConcat(ColorMatrix().apply { setSaturation(1f + saturation) })
 
         val c = 1f + contrast            // 0..2
         val t = (1f - c) * 127.5f        // keep mid-grey fixed
@@ -41,5 +41,5 @@ data class Adjustments(
         return result
     }
 
-    val isNeutral get() = brightness == 0f && contrast == 0f && saturation == 0f
+    val isNeutral get() = brightness == 0f && contrast == 0f
 }

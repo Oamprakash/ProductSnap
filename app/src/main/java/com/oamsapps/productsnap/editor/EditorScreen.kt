@@ -66,6 +66,10 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
         state.message?.let { snackbar.showSnackbar(it); vm.clearMessage() }
     }
 
+    LaunchedEffect(state.paywallRequested) {
+        if (state.paywallRequested) { onOpenPaywall(); vm.paywallShown() }
+    }
+
     Scaffold(
         topBar = {
             when {
@@ -285,7 +289,8 @@ private fun EraseControls(state: EditorState, vm: EditorViewModel) {
     val busy = state.isApplyingErase
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            "Paint over what you want to remove, then tap Erase. Pinch to zoom in on small spots.",
+            "Paint over background clutter, then tap Erase. Pinch to zoom in on small spots. " +
+                "The product itself is protected, so its real condition stays visible to buyers.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -417,7 +422,6 @@ private fun AdjustmentControls(state: EditorState, vm: EditorViewModel) {
         }
         LabeledSlider("Brightness", state.adjustments.brightness, vm::setBrightness)
         LabeledSlider("Contrast", state.adjustments.contrast, vm::setContrast)
-        LabeledSlider("Saturation", state.adjustments.saturation, vm::setSaturation)
     }
 }
 

@@ -48,7 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oamsapps.productsnap.BuildConfig
 
 private val Benefits = listOf(
-    "Full-quality saves, up to ${PremiumManager.PREMIUM_MAX_EDGE}px",
+    "Unlimited saves at full quality",
     "No watermark",
     "Batches of up to ${PremiumManager.PREMIUM_BATCH_LIMIT} photos",
 )

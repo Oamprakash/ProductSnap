@@ -19,7 +19,7 @@ data class ExportSettings(
     /** Transparent output must be PNG; JPEG would turn it black. */
     val transparent get() = fillsBackground && background.isTransparent
 
-    val maxEdge get() = if (premium) PremiumManager.PREMIUM_MAX_EDGE else PremiumManager.FREE_MAX_EDGE
+    val maxEdge get() = PremiumManager.EXPORT_MAX_EDGE
 
     fun renderSpec(content: Bitmap, backgroundPhoto: Bitmap? = null) = RenderSpec(
         content = content,

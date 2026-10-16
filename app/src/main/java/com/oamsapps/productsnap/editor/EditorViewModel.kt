@@ -7,6 +7,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.oamsapps.productsnap.billing.PremiumManager
+import com.oamsapps.productsnap.billing.FreeAllowance
 import com.oamsapps.productsnap.image.Adjustments
 import com.oamsapps.productsnap.image.BackgroundRemover
 import com.oamsapps.productsnap.image.BitmapLoader
@@ -61,6 +62,8 @@ data class EditorState(
     val eraseStrokes: List<EraseStroke> = emptyList(),
     val brushSizeDp: Float = 28f,
     val isApplyingErase: Boolean = false,
+    /** Set when a save needs Premium; the screen opens the paywall and clears it. */
+    val paywallRequested: Boolean = false,
     // Crop
     val isCropping: Boolean = false,
     val cropRect: Rect = FullFrame,      // normalised 0..1
@@ -189,7 +192,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setSquare(on: Boolean) = _state.update { it.copy(squareCanvas = on) }
     fun setBrightness(v: Float) = _state.update { it.copy(adjustments = it.adjustments.copy(brightness = v)) }
     fun setContrast(v: Float) = _state.update { it.copy(adjustments = it.adjustments.copy(contrast = v)) }
-    fun setSaturation(v: Float) = _state.update { it.copy(adjustments = it.adjustments.copy(saturation = v)) }
     fun resetAdjustments() = _state.update { it.copy(adjustments = Adjustments()) }
     fun clearMessage() = _state.update { it.copy(message = null) }
 
@@ -242,6 +244,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setBrushSize(dp: Float) = _state.update { it.copy(brushSizeDp = dp) }
 
+    /**
+     * Erases background clutter only. The product is found first (the existing cutout, or a fresh one) and its
+     * pixels are put back over the filled result, so strokes that stray onto the item can't change it: stains,
+     * holes and wear stay visible to buyers. Without a product (none found), the eraser works as before.
+     */
     fun applyErase() {
         val s = _state.value
         val original = s.original ?: return
@@ -250,12 +257,18 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
         viewModelScope.launch {
             _state.update { it.copy(isApplyingErase = true, message = null) }
-            runCatching { eraser.erase(original, strokes) }
-                .onSuccess { result ->
+            runCatching {
+                val product = s.cutout ?: runCatching { remover.removeBackground(original) }.getOrNull()
+                val filled = eraser.erase(original, strokes)
+                (if (product != null) keepProduct(filled, product) else filled) to product
+            }
+                .onSuccess { (result, product) ->
                     _state.update {
-                        it.copy(
+                        if (it.original !== original) it.copy(isApplyingErase = false)
+                        else it.copy(
                             original = result,
-                            cutout = null, // the old cutout no longer matches the photo
+                            // The product's pixels are unchanged, so its cutout still matches the photo.
+                            cutout = product,
                             eraseStrokes = emptyList(),
                             isApplyingErase = false,
                             history = (it.history + original).takeLast(MAX_UNDO),
@@ -272,6 +285,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
         }
+    }
+
+    /** Draws the product (a same-size cutout) back over the erased photo. */
+    private fun keepProduct(filled: Bitmap, product: Bitmap): Bitmap {
+        val out = if (filled.isMutable) filled else filled.copy(Bitmap.Config.ARGB_8888, true)
+        android.graphics.Canvas(out).drawBitmap(product, null, android.graphics.Rect(0, 0, out.width, out.height), null)
+        return out
     }
 
     // ---------- Crop ----------
@@ -344,9 +364,16 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- Save ----------
 
+    fun paywallShown() = _state.update { it.copy(paywallRequested = false) }
+
     fun save() {
         val s = _state.value
         val content = s.displayBitmap ?: return
+        val freeSave = !isPremium.value
+        if (freeSave && FreeAllowance.remaining() == 0) {
+            _state.update { it.copy(paywallRequested = true) }
+            return
+        }
         val settings = ExportSettings(
             removeBackground = s.useCutout,
             background = s.background,
@@ -365,7 +392,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     out.recycle()
                 }
             }.onSuccess {
-                _state.update { it.copy(isSaving = false, message = "Saved to Pictures/ProductSnap") }
+                if (freeSave) FreeAllowance.markUsed(getApplication())
+                val message = if (freeSave) "Saved your free photo to Pictures/ProductSnap. Go Premium to save more without the watermark."
+                else "Saved to Pictures/ProductSnap"
+                _state.update { it.copy(isSaving = false, message = message) }
             }.onFailure { e ->
                 _state.update { it.copy(isSaving = false, message = "Couldn't save: ${e.message}") }
             }
