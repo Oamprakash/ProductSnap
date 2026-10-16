@@ -7,19 +7,28 @@ import com.oamsapps.imaging.ImageIo
 import com.oamsapps.imaging.ListingPhotoPipeline
 import com.oamsapps.imaging.MaskVerdict
 import com.oamsapps.imaging.MlKitSegmenter
+import com.oamsapps.imaging.SegmentInput
+import com.oamsapps.imaging.Segmented
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
+/** A cutout, or why there isn't one. */
+class Removal(val cutout: Bitmap?, val verdict: MaskVerdict) {
+    /** Something was found but the mask is unusable (garbled, or everything): worth a person's look. */
+    val needsLook get() = verdict == MaskVerdict.CORRUPTED || verdict == MaskVerdict.FULL
+}
+
 /**
- * On-device background removal, now backed by the tested core:imaging pipeline.
+ * On-device background removal, backed by the tested core:imaging pipeline: per-subject masks segmented at
+ * 1024 px, a check that rejects empty/full/corrupted masks, edge cleanup, and a verified composite at the
+ * source's own size. (The old version used ML Kit's foregroundBitmap, which came back striped on the test phone.)
  *
- * The previous version used ML Kit's whole-image foregroundBitmap, which came back as horizontal stripes on
- * the test phone. The pipeline uses per-subject masks, segments at 1024 px, rejects corrupted masks, cleans
- * the edges and composites at the source's own size.
+ * Batch uses [segment] and [finish] separately so ML Kit can work on the next photo while the previous one is
+ * finished; the editor uses [remove]. Get it with [shared].
  */
-class BackgroundRemover(context: Context) {
+class BackgroundRemover private constructor(context: Context) {
 
     private val segmenter = MlKitSegmenter(context.applicationContext)
     // The app has its own brightness/contrast controls, so auto-brighten stays off here for now.
@@ -27,29 +36,56 @@ class BackgroundRemover(context: Context) {
     private val prepareLock = Mutex()
     private var prepared = false
 
-    /** Last verdict, so callers can tell "nothing found" from "corrupted" if they want to. */
-    @Volatile var lastVerdict: MaskVerdict? = null
-        private set
-
-    /** Returns the subject on a transparent background at the source's size, or null if no usable cutout. */
-    suspend fun removeBackground(source: Bitmap): Bitmap? = withContext(Dispatchers.Default) {
+    /** Waits for the ML Kit model (downloaded by Play services) and runs it once. Called by [segment] anyway. */
+    suspend fun warmUp() = withContext(Dispatchers.Default) {
         prepareLock.withLock {
             if (!prepared) { segmenter.prepare(); prepared = true }
         }
-        val full = ImageIo.normalize(source)
-        val result = pipeline.process(full)
-        if (full !== source) full.recycle()
-        lastVerdict = result.verdict
-        if (result.verdict != MaskVerdict.OK) {
-            Log.w(TAG, "No usable cutout: ${result.verdict}")
-            return@withContext null
-        }
-        Log.d(TAG, "Cutout via ${result.compositePath}: ${result.timings.totalMs} ms " +
-            "(segment ${result.timings.segmentMs}, clean ${result.timings.cleanMs}, composite ${result.timings.compositeMs})")
-        result.cutout
     }
 
-    fun close() = segmenter.close()
+    /** CPU prep for ML Kit. The returned value owns a normalized copy of [source]; pass it to [segment]. */
+    suspend fun prepareInput(source: Bitmap): SegmentInput = withContext(Dispatchers.Default) {
+        pipeline.prepareInput(ImageIo.normalize(source))
+    }
 
-    private companion object { const val TAG = "BackgroundRemover" }
+    /** ML Kit only. Pass the result to [finish], which frees the normalized copy. */
+    suspend fun segment(input: SegmentInput): Segmented = withContext(Dispatchers.Default) {
+        warmUp()
+        pipeline.segment(input)
+    }
+
+    suspend fun segment(source: Bitmap): Segmented = segment(prepareInput(source))
+
+    /** Stage 2: cleanup and compositing. Frees the normalized copy. */
+    suspend fun finish(s: Segmented): Removal = withContext(Dispatchers.Default) {
+        try {
+            val result = pipeline.finish(s)
+            if (result.verdict == MaskVerdict.OK) {
+                Log.d(TAG, "Cutout via ${result.compositePath}: ${result.timings.totalMs} ms " +
+                    "(segment ${result.timings.segmentMs}, clean ${result.timings.cleanMs}, composite ${result.timings.compositeMs})")
+            } else {
+                Log.w(TAG, "No usable cutout: ${result.verdict}")
+            }
+            Removal(result.cutout, result.verdict)
+        } finally {
+            s.full.recycle()
+        }
+    }
+
+    suspend fun remove(source: Bitmap): Removal = finish(segment(source))
+
+    /** The subject on a transparent background at the source's size, or null if there's no usable cutout. */
+    suspend fun removeBackground(source: Bitmap): Bitmap? = remove(source).cutout
+
+    companion object {
+        private const val TAG = "BackgroundRemover"
+        @Volatile private var instance: BackgroundRemover? = null
+
+        /**
+         * One remover for the whole process, shared by the editor and batch and never closed, so the ML Kit
+         * model is loaded and warmed up once. A fresh one per batch run cost about 4 s before the first photo.
+         */
+        fun shared(context: Context): BackgroundRemover =
+            instance ?: synchronized(this) { instance ?: BackgroundRemover(context.applicationContext).also { instance = it } }
+    }
 }

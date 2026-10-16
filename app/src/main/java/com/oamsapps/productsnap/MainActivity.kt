@@ -38,7 +38,15 @@ class MainActivity : ComponentActivity() {
                 val openPaywall = { showPaywall.value = true }
                 if (showBatch.value) {
                     BackHandler { showBatch.value = false }
-                    BatchScreen(batchVm, onBack = { showBatch.value = false }, onOpenPaywall = openPaywall)
+                    BatchScreen(
+                        batchVm,
+                        onBack = { showBatch.value = false },
+                        onOpenPaywall = openPaywall,
+                        onOpenInEditor = { file ->
+                            showBatch.value = false
+                            editorVm.loadImage(Uri.fromFile(file))
+                        },
+                    )
                 } else {
                     EditorScreen(editorVm, onOpenBatch = ::openBatch, onOpenPaywall = openPaywall)
                 }

@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.batch
 
+import android.util.Log
+import com.oamsapps.productsnap.image.BackgroundRemover
 import android.app.Application
 import android.graphics.Bitmap
 import android.media.ThumbnailUtils
@@ -34,6 +36,7 @@ sealed interface ItemStatus {
     data object Working : ItemStatus
     data object Saved : ItemStatus
     data object NoSubject : ItemStatus
+    data object NeedsLook : ItemStatus
     data class Failed(val reason: String) : ItemStatus
 }
 
@@ -41,6 +44,8 @@ data class BatchItem(
     val id: Int,
     val thumbnail: Bitmap? = null,
     val status: ItemStatus = ItemStatus.Pending,
+    /** The photo's private copy, when it can be opened in the editor (not saved, copy still kept). */
+    val openable: File? = null,
 )
 
 data class BatchState(
@@ -58,6 +63,8 @@ data class BatchState(
     val message: String? = null,
     /** The message is about the free batch limit, so offer an upgrade with it. */
     val messageOffersUpgrade: Boolean = false,
+    /** Per-step timing of the last run, for tuning batch speed. */
+    val timing: String? = null,
 ) {
     val savedCount get() = items.count { it.status == ItemStatus.Saved }
     val finishedCount get() = items.count { it.status != ItemStatus.Pending && it.status != ItemStatus.Working }
@@ -88,6 +95,11 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
     private var wasRunning: Boolean? = null
 
     init {
+        // Load and warm up the cutout model now, so tapping Save starts on the first photo straight away.
+        viewModelScope.launch {
+            runCatching { BackgroundRemover.shared(app).warmUp() }
+                .onFailure { Log.w("BatchViewModel", "Model warm-up failed; the batch will retry it", it) }
+        }
         viewModelScope.launch {
             workManager.getWorkInfosForUniqueWorkFlow(BatchWorker.UNIQUE_NAME).collect { infos ->
                 val running = infos.any { !it.state.isFinished }
@@ -169,7 +181,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
     fun clear() {
         if (!_state.value.canEdit) return
         viewModelScope.launch {
-            store.update { it.copy(items = emptyList()) }
+            store.update { it.copy(items = emptyList(), timing = null) }
             store.pruneInputs()
             _state.update { it.copy(message = null) }
             refresh()
@@ -222,6 +234,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
             val job = store.update { j ->
                 j.copy(
                     premium = isPremium.value,
+                    timing = null,
                     items = j.items.map {
                         if (it.status == StoredStatus.FAILED) it.copy(status = StoredStatus.PENDING, reason = null) else it
                     },
@@ -249,7 +262,11 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
 
         _state.update { s ->
             s.copy(
-                items = job.items.map { BatchItem(it.id, thumbnails[it.id], it.toItemStatus(running)) },
+                items = job.items.map { item ->
+                    val status = item.toItemStatus(running)
+                    val canOpen = status == ItemStatus.NeedsLook || status == ItemStatus.NoSubject || status is ItemStatus.Failed
+                    BatchItem(item.id, thumbnails[item.id], status, File(item.inputPath).takeIf { canOpen && it.exists() })
+                },
                 removeBackground = job.settings.removeBackground,
                 background = job.settings.background,
                 squareCanvas = job.settings.squareCanvas,
@@ -257,6 +274,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
                 crop = job.settings.crop,
                 shadow = job.settings.shadow,
                 isRunning = running,
+                timing = job.timing,
             )
         }
         job.items.filter { !thumbnails.containsKey(it.id) }.forEach(::loadThumbnail)
@@ -320,6 +338,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
         StoredStatus.WORKING -> if (running) ItemStatus.Working else ItemStatus.Pending
         StoredStatus.SAVED -> ItemStatus.Saved
         StoredStatus.NO_SUBJECT -> ItemStatus.NoSubject
+        StoredStatus.NEEDS_LOOK -> ItemStatus.NeedsLook
         StoredStatus.FAILED -> ItemStatus.Failed(reason ?: "Unknown error")
     }
 

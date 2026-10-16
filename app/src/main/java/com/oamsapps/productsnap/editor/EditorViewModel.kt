@@ -87,7 +87,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<EditorState> = _state.asStateFlow()
 
     val isPremium = PremiumManager.isPremium
-    private val remover = BackgroundRemover(app)
+    private val remover = BackgroundRemover.shared(app)
     private val eraser = MagicEraser()
 
     init {
@@ -131,12 +131,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
         viewModelScope.launch {
             _state.update { it.copy(isRemovingBackground = true, message = null) }
-            runCatching { remover.removeBackground(original) }
-                .onSuccess { cut ->
+            runCatching { remover.remove(original) }
+                .onSuccess { removal ->
+                    val cut = removal.cutout
                     _state.update {
                         // Ignore a stale result if the photo changed while this was running.
                         if (it.original !== original) it.copy(isRemovingBackground = false)
-                        else if (cut == null) it.copy(isRemovingBackground = false, message = "No product found. Try a photo with a clear subject.")
+                        else if (cut == null) it.copy(
+                            isRemovingBackground = false,
+                            message = if (removal.needsLook) "The cutout came out wrong on this photo. Try one with a plainer background, or keep the original."
+                            else "No product found. Try a photo with a clear subject.",
+                        )
                         else it.copy(cutout = cut, useCutout = true, isRemovingBackground = false)
                     }
                 }
@@ -400,10 +405,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(isSaving = false, message = "Couldn't save: ${e.message}") }
             }
         }
-    }
-
-    override fun onCleared() {
-        remover.close()
     }
 
     private fun PixelRect.normalizedIn(bmp: Bitmap) = Rect(
