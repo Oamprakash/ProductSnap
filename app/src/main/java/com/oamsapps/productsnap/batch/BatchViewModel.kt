@@ -34,6 +34,7 @@ sealed interface ItemStatus {
     data object Working : ItemStatus
     data object Saved : ItemStatus
     data object NoSubject : ItemStatus
+    data object NeedsLook : ItemStatus
     data class Failed(val reason: String) : ItemStatus
 }
 
@@ -41,6 +42,8 @@ data class BatchItem(
     val id: Int,
     val thumbnail: Bitmap? = null,
     val status: ItemStatus = ItemStatus.Pending,
+    /** The photo's private copy, when it can be opened in the editor (not saved, copy still kept). */
+    val openable: File? = null,
 )
 
 data class BatchState(
@@ -249,7 +252,11 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
 
         _state.update { s ->
             s.copy(
-                items = job.items.map { BatchItem(it.id, thumbnails[it.id], it.toItemStatus(running)) },
+                items = job.items.map { item ->
+                    val status = item.toItemStatus(running)
+                    val canOpen = status == ItemStatus.NeedsLook || status == ItemStatus.NoSubject || status is ItemStatus.Failed
+                    BatchItem(item.id, thumbnails[item.id], status, File(item.inputPath).takeIf { canOpen && it.exists() })
+                },
                 removeBackground = job.settings.removeBackground,
                 background = job.settings.background,
                 squareCanvas = job.settings.squareCanvas,
@@ -320,6 +327,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
         StoredStatus.WORKING -> if (running) ItemStatus.Working else ItemStatus.Pending
         StoredStatus.SAVED -> ItemStatus.Saved
         StoredStatus.NO_SUBJECT -> ItemStatus.NoSubject
+        StoredStatus.NEEDS_LOOK -> ItemStatus.NeedsLook
         StoredStatus.FAILED -> ItemStatus.Failed(reason ?: "Unknown error")
     }
 

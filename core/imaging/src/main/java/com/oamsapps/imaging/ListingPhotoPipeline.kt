@@ -43,16 +43,25 @@ class ListingPhotoPipeline(
     private val autoLight: Boolean = true,
 ) {
 
-    suspend fun process(full: Bitmap): ProcessedPhoto {
+    /**
+     * Stage 1, the slow part (ML Kit, about 1.7 s): segment and check the mask. Split from [finish] so a batch
+     * can segment the next photo while the previous one is being finished and saved.
+     */
+    suspend fun segment(full: Bitmap): Segmented {
         val small = ImageIo.downscale(full, segmentLongEdge)
         val seg = segmenter.segment(small)
+        return Segmented(full, small, seg, MaskCheck.check(seg.mask))
+    }
 
-        val verdict = MaskCheck.check(seg.mask)
-        if (verdict != MaskVerdict.OK) {
-            return ProcessedPhoto(verdict, null, seg.mask, LightFix.NONE, null, seg.subjectBoxShares,
+    /** Stage 2: edge cleanup, compositing at full size, lighting. CPU only. */
+    fun finish(s: Segmented): ProcessedPhoto {
+        val seg = s.result
+        if (s.verdict != MaskVerdict.OK) {
+            return ProcessedPhoto(s.verdict, null, seg.mask, LightFix.NONE, null, seg.subjectBoxShares,
                 StepTimings(seg.latencyMs, 0, 0, 0))
         }
-
+        val full = s.full
+        val small = s.small
         val t0 = SystemClock.elapsedRealtime()
         val r = MaskOps.edgeRadius(max(small.width, small.height), max(full.width, full.height))
         val clean = MaskOps.cleanEdges(seg.mask, erodePx = r, featherPx = r)
@@ -62,8 +71,17 @@ class ListingPhotoPipeline(
         val light = if (autoLight) AutoLight.analyze(small, clean) else LightFix.NONE
         val lit = if (autoLight) AutoLight.apply(cut.bitmap, light).also { cut.bitmap.recycle() } else cut.bitmap
         val t3 = SystemClock.elapsedRealtime()
-
         return ProcessedPhoto(MaskVerdict.OK, lit, clean, light, cut.path, seg.subjectBoxShares,
             StepTimings(seg.latencyMs, t1 - t0, t2 - t1, t3 - t2))
     }
+
+    suspend fun process(full: Bitmap): ProcessedPhoto = finish(segment(full))
 }
+
+/** Output of [ListingPhotoPipeline.segment]: the photo, its downscaled copy, the mask and its verdict. */
+class Segmented internal constructor(
+    val full: Bitmap,
+    internal val small: Bitmap,
+    val result: SegmentResult,
+    val verdict: MaskVerdict,
+)

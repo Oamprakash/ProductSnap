@@ -131,12 +131,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
         viewModelScope.launch {
             _state.update { it.copy(isRemovingBackground = true, message = null) }
-            runCatching { remover.removeBackground(original) }
-                .onSuccess { cut ->
+            runCatching { remover.remove(original) }
+                .onSuccess { removal ->
+                    val cut = removal.cutout
                     _state.update {
                         // Ignore a stale result if the photo changed while this was running.
                         if (it.original !== original) it.copy(isRemovingBackground = false)
-                        else if (cut == null) it.copy(isRemovingBackground = false, message = "No product found. Try a photo with a clear subject.")
+                        else if (cut == null) it.copy(
+                            isRemovingBackground = false,
+                            message = if (removal.needsLook) "The cutout came out wrong on this photo. Try one with a plainer background, or keep the original."
+                            else "No product found. Try a photo with a clear subject.",
+                        )
                         else it.copy(cutout = cut, useCutout = true, isRemovingBackground = false)
                     }
                 }

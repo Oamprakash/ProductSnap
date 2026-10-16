@@ -8,6 +8,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -36,7 +37,7 @@ import com.oamsapps.productsnap.image.BatchCrop
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BatchScreen(vm: BatchViewModel, onBack: () -> Unit, onOpenPaywall: () -> Unit) {
+fun BatchScreen(vm: BatchViewModel, onBack: () -> Unit, onOpenPaywall: () -> Unit, onOpenInEditor: (java.io.File) -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val premium by vm.isPremium.collectAsStateWithLifecycle()
     val freeAvailable by vm.freeAvailable.collectAsStateWithLifecycle()
@@ -130,6 +131,7 @@ fun BatchScreen(vm: BatchViewModel, onBack: () -> Unit, onOpenPaywall: () -> Uni
                         item = item,
                         canRemove = state.canEdit,
                         onRemove = { vm.removeItem(item.id) },
+                        onOpen = item.openable?.takeIf { state.canEdit }?.let { file -> { onOpenInEditor(file) } },
                     )
                 }
                 if (state.isImporting) {
@@ -282,11 +284,13 @@ private fun ImportingRow() {
 }
 
 @Composable
-private fun BatchRow(index: Int, item: BatchItem, canRemove: Boolean, onRemove: () -> Unit) {
+private fun BatchRow(index: Int, item: BatchItem, canRemove: Boolean, onRemove: () -> Unit, onOpen: (() -> Unit)?) {
     val thumb = remember(item.thumbnail) { item.thumbnail?.asImageBitmap() }
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth()
+            .then(if (onOpen != null) Modifier.clickable(onClickLabel = "Open in the editor", onClick = onOpen) else Modifier)
+            .padding(vertical = 4.dp),
     ) {
         Box(
             Modifier.size(56.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
@@ -299,14 +303,14 @@ private fun BatchRow(index: Int, item: BatchItem, canRemove: Boolean, onRemove: 
             Text(
                 statusLabel(item.status),
                 style = MaterialTheme.typography.bodySmall,
-                color = if (item.status is ItemStatus.Failed || item.status == ItemStatus.NoSubject)
+                color = if (item.status is ItemStatus.Failed || item.status == ItemStatus.NoSubject || item.status == ItemStatus.NeedsLook)
                     MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         when (item.status) {
             ItemStatus.Working -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
             ItemStatus.Saved -> Icon(Icons.Default.CheckCircle, "Saved", tint = MaterialTheme.colorScheme.primary)
-            ItemStatus.NoSubject, is ItemStatus.Failed ->
+            ItemStatus.NoSubject, ItemStatus.NeedsLook, is ItemStatus.Failed ->
                 Icon(Icons.Default.ErrorOutline, "Not saved", tint = MaterialTheme.colorScheme.error)
             ItemStatus.Pending -> if (canRemove) {
                 IconButton(onClick = onRemove) { Icon(Icons.Default.Close, "Remove from batch") }
@@ -319,7 +323,8 @@ private fun statusLabel(status: ItemStatus) = when (status) {
     ItemStatus.Pending -> "Ready"
     ItemStatus.Working -> "Saving…"
     ItemStatus.Saved -> "Saved"
-    ItemStatus.NoSubject -> "No product found, skipped"
+    ItemStatus.NoSubject -> "No product found. Tap to open in the editor"
+    ItemStatus.NeedsLook -> "Needs a look: the cutout came out wrong. Tap to fix in the editor"
     is ItemStatus.Failed -> "Not saved: ${status.reason}"
 }
 

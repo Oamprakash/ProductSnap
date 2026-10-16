@@ -16,7 +16,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
-enum class StoredStatus { PENDING, WORKING, SAVED, NO_SUBJECT, FAILED }
+/** NEEDS_LOOK: a product was found but the cutout is unusable (garbled or the whole photo); fix it in the editor. */
+enum class StoredStatus { PENDING, WORKING, SAVED, NO_SUBJECT, NEEDS_LOOK, FAILED }
 
 data class StoredItem(
     val id: Int,
