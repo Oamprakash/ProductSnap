@@ -407,9 +407,10 @@ private fun Preview(state: EditorState) {
     // Fresh zoom per photo / edit, so a new result is always shown whole first.
     val zoom = remember(bmp) { ZoomState(maxZoom = 5f) }
     // Same matrix the exporter uses, so preview == output.
-    val filter = remember(state.adjustments) {
-        if (state.adjustments.isNeutral) null
-        else ColorFilter.colorMatrix(ColorMatrix(state.adjustments.toColorMatrix().array))
+    val adjustments = state.effectiveAdjustments
+    val filter = remember(adjustments) {
+        if (adjustments.isNeutral) null
+        else ColorFilter.colorMatrix(ColorMatrix(adjustments.toColorMatrix().array))
     }
     val fillsBackground = state.useCutout || state.squareCanvas
     val photo = remember(state.backgroundPhoto) { state.backgroundPhoto?.asImageBitmap() }
@@ -497,7 +498,20 @@ private fun AdjustmentControls(state: EditorState, vm: EditorViewModel) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Adjust", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            TextButton(onClick = vm::resetAdjustments, enabled = !state.adjustments.isNeutral) { Text("Reset") }
+            TextButton(onClick = vm::resetAdjustments, enabled = !state.adjustments.slidersNeutral) { Text("Reset") }
+        }
+        if (state.useCutout) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Auto light", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Fixes a dim or tinted photo. It never changes the item's own colours.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = state.autoLight, onCheckedChange = vm::setAutoLight)
+            }
         }
         LabeledSlider("Brightness", state.adjustments.brightness, vm::setBrightness)
         LabeledSlider("Contrast", state.adjustments.contrast, vm::setContrast)

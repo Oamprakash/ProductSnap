@@ -1,18 +1,26 @@
 package com.oamsapps.productsnap.image
 
 import android.graphics.ColorMatrix
+import com.oamsapps.imaging.LightFix
 
 /**
  * Slider values. 0f = neutral. Range -1f..1f.
  * No saturation control: it changes the item's colour, and buyers rely on photos to judge colour.
+ *
+ * [light] is the measured Auto light fix for the current photo (per-channel gains only). It's applied first, so
+ * the sliders fine-tune from the corrected photo.
  */
 data class Adjustments(
     val brightness: Float = 0f,
     val contrast: Float = 0f,
+    val light: LightFix = LightFix.NONE,
 ) {
     /** Single matrix used by BOTH live preview and export, so they always match. */
     fun toColorMatrix(): ColorMatrix {
         val result = ColorMatrix()
+        if (light != LightFix.NONE) {
+            result.setScale(light.gainR * light.exposure, light.gainG * light.exposure, light.gainB * light.exposure, 1f)
+        }
 
         val c = 1f + contrast            // 0..2
         val t = (1f - c) * 127.5f        // keep mid-grey fixed
@@ -41,5 +49,8 @@ data class Adjustments(
         return result
     }
 
-    val isNeutral get() = brightness == 0f && contrast == 0f
+    val isNeutral get() = brightness == 0f && contrast == 0f && light == LightFix.NONE
+
+    /** The sliders alone are at zero (what the Reset button resets). */
+    val slidersNeutral get() = brightness == 0f && contrast == 0f
 }

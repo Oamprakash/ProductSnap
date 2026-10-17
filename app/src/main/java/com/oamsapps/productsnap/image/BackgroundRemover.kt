@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import com.oamsapps.imaging.ImageIo
+import com.oamsapps.imaging.LightFix
 import com.oamsapps.imaging.ListingPhotoPipeline
 import com.oamsapps.imaging.MaskVerdict
 import com.oamsapps.imaging.MlKitSegmenter
@@ -15,7 +16,12 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** A cutout, or why there isn't one. */
-class Removal(val cutout: Bitmap?, val verdict: MaskVerdict) {
+class Removal(
+    val cutout: Bitmap?,
+    val verdict: MaskVerdict,
+    /** Measured lighting fix for the item, applied at render time when the user has Auto light on. */
+    val light: LightFix = LightFix.NONE,
+) {
     /** Something was found but the mask is unusable (garbled, or everything): worth a person's look. */
     val needsLook get() = verdict == MaskVerdict.CORRUPTED || verdict == MaskVerdict.FULL
 }
@@ -31,8 +37,9 @@ class Removal(val cutout: Bitmap?, val verdict: MaskVerdict) {
 class BackgroundRemover private constructor(context: Context) {
 
     private val segmenter = MlKitSegmenter(context.applicationContext)
-    // The app has its own brightness/contrast controls, so auto-brighten stays off here for now.
-    private val pipeline = ListingPhotoPipeline(segmenter, autoLight = false)
+    // Light is measured here but applied at render time, so the user can switch it off and the cutout keeps the
+    // photo's true pixels (the Fix cutout brush restores from those).
+    private val pipeline = ListingPhotoPipeline(segmenter, autoLight = false, measureLight = true)
     private val prepareLock = Mutex()
     private var prepared = false
 
@@ -66,7 +73,7 @@ class BackgroundRemover private constructor(context: Context) {
             } else {
                 Log.w(TAG, "No usable cutout: ${result.verdict}")
             }
-            Removal(result.cutout, result.verdict)
+            Removal(result.cutout, result.verdict, result.light)
         } finally {
             s.full.recycle()
         }
