@@ -34,6 +34,8 @@ data class BatchSettings(
     val adjustments: Adjustments = Adjustments(),
     val crop: BatchCrop = BatchCrop.NONE,
     val shadow: Boolean = true,
+    /** Apply each photo's measured light fix (only with background removal). */
+    val autoLight: Boolean = true,
 ) {
     fun toExport(premium: Boolean) = ExportSettings(
         removeBackground = removeBackground,
@@ -43,6 +45,7 @@ data class BatchSettings(
         premium = premium,
         crop = crop,
         shadow = shadow,
+        autoLight = autoLight,
     )
 }
 
@@ -116,6 +119,7 @@ class BatchStore private constructor(context: Context) {
             put("contrast", job.settings.adjustments.contrast.toDouble())
             put("crop", job.settings.crop.name)
             put("shadow", job.settings.shadow)
+            put("autoLight", job.settings.autoLight)
         })
         put("items", JSONArray().apply {
             job.items.forEach { item ->
@@ -144,6 +148,7 @@ class BatchStore private constructor(context: Context) {
             ),
             crop = runCatching { BatchCrop.valueOf(s.optString("crop", "NONE")) }.getOrDefault(BatchCrop.NONE),
             shadow = s.optBoolean("shadow", true),
+            autoLight = s.optBoolean("autoLight", true),
         )
         val arr = json.getJSONArray("items")
         val items = (0 until arr.length()).map { i ->

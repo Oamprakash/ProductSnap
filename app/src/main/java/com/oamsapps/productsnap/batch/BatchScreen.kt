@@ -158,6 +158,7 @@ private fun SettingsCard(state: BatchState, vm: BatchViewModel, onChoosePhoto: (
             SettingSwitch("Remove background", state.removeBackground, enabled, vm::setRemoveBackground)
             if (state.removeBackground) {
                 SettingSwitch("Shadow under product", state.shadow, enabled, vm::setShadow)
+                SettingSwitch("Auto light", state.autoLight, enabled, vm::setAutoLight)
             }
             SettingSwitch("Square for marketplaces", state.squareCanvas, enabled, vm::setSquare)
             Text("Background", style = MaterialTheme.typography.bodyLarge)
@@ -171,7 +172,7 @@ private fun SettingsCard(state: BatchState, vm: BatchViewModel, onChoosePhoto: (
                 busy = state.isPreparingBackground,
             )
             CropChips(state, enabled, vm::setCrop)
-            if (!state.adjustments.isNeutral) {
+            if (!state.adjustments.slidersNeutral) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         "Brightness and contrast from the editor",

@@ -58,6 +58,7 @@ data class BatchState(
     val adjustments: Adjustments = Adjustments(),
     val crop: BatchCrop = BatchCrop.NONE,
     val shadow: Boolean = true,
+    val autoLight: Boolean = true,
     val isRunning: Boolean = false,
     val isImporting: Boolean = false,
     val message: String? = null,
@@ -124,6 +125,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
                     squareCanvas = editor.squareCanvas,
                     adjustments = editor.adjustments,
                     shadow = editor.shadow,
+                    autoLight = editor.autoLight,
                 )
             )
         }
@@ -213,6 +215,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
     fun clearAdjustments() = editSettings { it.copy(adjustments = Adjustments()) }
     fun setCrop(crop: BatchCrop) = editSettings { it.copy(crop = crop) }
     fun setShadow(on: Boolean) = editSettings { it.copy(shadow = on) }
+    fun setAutoLight(on: Boolean) = editSettings { it.copy(autoLight = on) }
     fun clearMessage() = _state.update { it.copy(message = null, messageOffersUpgrade = false) }
 
     private fun editSettings(change: (BatchSettings) -> BatchSettings) {
@@ -273,6 +276,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
                 adjustments = job.settings.adjustments,
                 crop = job.settings.crop,
                 shadow = job.settings.shadow,
+                autoLight = job.settings.autoLight,
                 isRunning = running,
                 timing = job.timing,
             )

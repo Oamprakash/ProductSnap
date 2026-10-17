@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.oamsapps.imaging.BrushStroke
 import com.oamsapps.imaging.CutoutBrush
+import com.oamsapps.imaging.LightFix
 import com.oamsapps.productsnap.billing.PremiumManager
 import com.oamsapps.productsnap.billing.FreeAllowance
 import com.oamsapps.productsnap.image.Adjustments
@@ -50,7 +51,12 @@ data class EditorState(
     /** Soft shadow under the product; only shown around a cutout. */
     val shadow: Boolean = true,
     val cutoutWithShadow: Bitmap? = null,
+    /** Slider values only; the per-photo light fix is kept apart in [light]. */
     val adjustments: Adjustments = Adjustments(),
+    /** Auto light switch; carried across photos. */
+    val autoLight: Boolean = true,
+    /** Measured lighting fix for this photo's product, from background removal. */
+    val light: LightFix = LightFix.NONE,
     val squareCanvas: Boolean = true,
     val isLoading: Boolean = false,
     val isRemovingBackground: Boolean = false,
@@ -88,6 +94,10 @@ data class EditorState(
             else -> cutout
         }
     val hasImage get() = original != null
+    /** Auto light only applies around a cutout: it's measured on the product, and the sliders build on it. */
+    val lightApplies get() = autoLight && useCutout && light != LightFix.NONE
+    /** What preview and export apply: the light fix (when on), then the sliders. */
+    val effectiveAdjustments get() = if (lightApplies) adjustments.copy(light = light) else adjustments
     val canUndo get() = history.isNotEmpty()
     val isInTool get() = isErasing || isCropping || isRefining
     val cropChanged get() = cropRect != FullFrame
@@ -131,6 +141,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                         backgroundPhoto = s.backgroundPhoto,
                         squareCanvas = s.squareCanvas,
                         adjustments = s.adjustments,
+                        autoLight = s.autoLight,
                         brushSizeDp = s.brushSizeDp,
                         shadow = s.shadow,
                     )
@@ -157,7 +168,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                             message = if (removal.needsLook) "The cutout came out wrong on this photo. Try one with a plainer background, or keep the original."
                             else "No product found. Try a photo with a clear subject.",
                         )
-                        else it.copy(cutout = cut, useCutout = true, isRemovingBackground = false)
+                        else it.copy(cutout = cut, light = removal.light, useCutout = true, isRemovingBackground = false)
                     }
                 }
                 .onFailure {
@@ -213,6 +224,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setBrightness(v: Float) = _state.update { it.copy(adjustments = it.adjustments.copy(brightness = v)) }
     fun setContrast(v: Float) = _state.update { it.copy(adjustments = it.adjustments.copy(contrast = v)) }
     fun resetAdjustments() = _state.update { it.copy(adjustments = Adjustments()) }
+    fun setAutoLight(on: Boolean) = _state.update { it.copy(autoLight = on) }
     fun clearMessage() = _state.update { it.copy(message = null) }
 
     // ---------- Undo (erase and crop) ----------
@@ -329,8 +341,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         // No cutout yet: try background removal first, so there's usually something to fix rather than redo.
         viewModelScope.launch {
             _state.update { it.copy(isRemovingBackground = true, message = null) }
-            val cut = runCatching { remover.remove(original).cutout }.getOrNull()
-            _state.update { it.copy(isRemovingBackground = false) }
+            val removal = runCatching { remover.remove(original) }.getOrNull()
+            val cut = removal?.cutout
+            _state.update { it.copy(isRemovingBackground = false, light = if (cut != null) removal?.light ?: it.light else it.light) }
             val now = _state.value
             if (now.original === original && !now.isInTool) enterRefine(original, cut)
         }
@@ -505,7 +518,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             removeBackground = s.useCutout,
             background = s.background,
             squareCanvas = s.squareCanvas,
-            adjustments = s.adjustments,
+            adjustments = s.effectiveAdjustments,
             premium = isPremium.value,
         )
 

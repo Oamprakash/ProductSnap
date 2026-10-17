@@ -13,6 +13,7 @@ data class ExportSettings(
     val premium: Boolean,
     val crop: BatchCrop = BatchCrop.NONE,   // batch only; the editor crops the photo itself
     val shadow: Boolean = false,            // batch only; the editor bakes it into its preview bitmap
+    val autoLight: Boolean = false,         // batch only; the editor passes the light inside its adjustments
 ) {
     private val fillsBackground get() = removeBackground || squareCanvas
 
