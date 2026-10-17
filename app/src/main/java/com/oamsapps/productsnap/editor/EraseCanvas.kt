@@ -61,7 +61,8 @@ import androidx.compose.ui.unit.toSize
 import com.oamsapps.productsnap.image.erase.EraseStroke
 import kotlin.math.roundToInt
 
-private val BrushColor = Color(0xFFFF3B30)
+val EraseBrushColor = Color(0xFFFF3B30)
+val RestoreBrushColor = Color(0xFF34C759)
 private const val MAX_ZOOM = 8f
 private const val BUTTON_ZOOM_STEP = 1.5f
 
@@ -75,6 +76,9 @@ private const val BUTTON_ZOOM_STEP = 1.5f
  *
  * The brush keeps the same size on screen at any zoom, so zooming in gives finer strokes.
  * Strokes are reported in image pixel coordinates, independent of screen size and zoom.
+ *
+ * Also used to touch up a cutout: then [bitmap] is the cutout drawn over a checkerboard, [underlay] is the
+ * original photo shown faintly beneath it, and [strokes] is empty because the cutout already shows them.
  */
 @Composable
 fun EraseCanvas(
@@ -85,8 +89,14 @@ fun EraseCanvas(
     isWorking: Boolean,
     onStroke: (EraseStroke) -> Unit,
     modifier: Modifier = Modifier,
+    brushColor: Color = EraseBrushColor,
+    underlay: Bitmap? = null,
+    underlayAlpha: Float = 0.3f,
+    checkerboard: Boolean = false,
+    description: String = "Photo. Paint over the area to remove. Pinch to zoom.",
 ) {
     val image = remember(bitmap) { bitmap.asImageBitmap() }
+    val underImage = remember(underlay) { underlay?.asImageBitmap() }
     // Current stroke, in unzoomed view coordinates ("content" space).
     val current = remember { mutableStateListOf<Offset>() }
     val brushPx = with(LocalDensity.current) { brushSizeDp.dp.toPx() }
@@ -119,7 +129,7 @@ fun EraseCanvas(
             .fillMaxSize()
             .clip(RoundedCornerShape(12.dp))
             .onSizeChanged { viewSize = it.toSize() }
-            .semantics { contentDescription = "Photo. Paint over the area to remove. Pinch to zoom." }
+            .semantics { contentDescription = description }
             .pointerInput(bitmap.width, bitmap.height) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
@@ -166,10 +176,14 @@ fun EraseCanvas(
             },
     ) {
         Canvas(Modifier.fillMaxSize()) {
+            // Fixed on screen (not zoomed): it only says "transparent here", and stays cheap at any zoom.
+            if (checkerboard) drawCheckerboard(12.dp.toPx())
             withTransform({
                 translate(pan.x, pan.y)
                 scale(zoom, zoom, pivot = Offset.Zero)
             }) {
+                val dst = IntSize(size.width.roundToInt(), size.height.roundToInt())
+                underImage?.let { drawImage(it, dstSize = dst, alpha = underlayAlpha, filterQuality = FilterQuality.Medium) }
                 drawImage(
                     image,
                     dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
@@ -193,9 +207,9 @@ fun EraseCanvas(
                 scale(zoom, zoom, pivot = Offset.Zero)
             }) {
                 strokes.forEach { s ->
-                    drawBrush(s.points.map { Offset(it.x * toView, it.y * toView) }, s.radius * toView)
+                    drawBrush(s.points.map { Offset(it.x * toView, it.y * toView) }, s.radius * toView, brushColor)
                 }
-                if (current.isNotEmpty()) drawBrush(current.toList(), brushPx / 2f / zoom)
+                if (current.isNotEmpty()) drawBrush(current.toList(), brushPx / 2f / zoom, brushColor)
             }
         }
 
@@ -257,15 +271,32 @@ private fun ZoomButtons(
 
 private fun Size.center() = Offset(width / 2f, height / 2f)
 
-private fun DrawScope.drawBrush(points: List<Offset>, radius: Float) {
+private fun DrawScope.drawBrush(points: List<Offset>, radius: Float, color: Color) {
     if (points.isEmpty()) return
     if (points.size == 1) {
-        drawCircle(BrushColor, radius, points[0])
+        drawCircle(color, radius, points[0])
         return
     }
     val path = Path().apply {
         moveTo(points[0].x, points[0].y)
         for (i in 1 until points.size) lineTo(points[i].x, points[i].y)
     }
-    drawPath(path, BrushColor, style = Stroke(width = radius * 2f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    drawPath(path, color, style = Stroke(width = radius * 2f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+}
+
+/** Light grey checks, the usual sign for "transparent here". */
+private fun DrawScope.drawCheckerboard(cell: Float) {
+    drawRect(Color(0xFFFFFFFF))
+    val dark = Color(0xFFE3E3E3)
+    var y = 0f
+    var row = 0
+    while (y < size.height) {
+        var x = if (row % 2 == 0) 0f else cell
+        while (x < size.width) {
+            drawRect(dark, Offset(x, y), Size(cell, cell))
+            x += cell * 2
+        }
+        y += cell
+        row++
+    }
 }

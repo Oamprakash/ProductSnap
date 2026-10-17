@@ -6,6 +6,8 @@ import android.net.Uri
 import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.oamsapps.imaging.BrushStroke
+import com.oamsapps.imaging.CutoutBrush
 import com.oamsapps.productsnap.billing.PremiumManager
 import com.oamsapps.productsnap.billing.FreeAllowance
 import com.oamsapps.productsnap.image.Adjustments
@@ -22,6 +24,7 @@ import com.oamsapps.productsnap.image.background.BackgroundStyle
 import com.oamsapps.productsnap.image.erase.EraseStroke
 import com.oamsapps.productsnap.image.erase.MagicEraser
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,8 +56,8 @@ data class EditorState(
     val isRemovingBackground: Boolean = false,
     val isSaving: Boolean = false,
     val message: String? = null,
-    /** Photos before each erase or crop, newest last, for undo. */
-    val history: List<Bitmap> = emptyList(),
+    /** Photo and cutout before each erase, crop or touch-up, newest last, for undo. */
+    val history: List<Snapshot> = emptyList(),
     /** Erase and crop work on the full photo; this brings the cutout back afterwards. */
     val restoreCutoutAfterEdit: Boolean = false,
     // Magic eraser
@@ -64,6 +67,15 @@ data class EditorState(
     val isApplyingErase: Boolean = false,
     /** Set when a save needs Premium; the screen opens the paywall and clears it. */
     val paywallRequested: Boolean = false,
+    // Touch up cutout: hand fixes to what background removal kept
+    val isRefining: Boolean = false,
+    /** The cutout when touch-up started; strokes are applied to it. */
+    val refineBase: Bitmap? = null,
+    /** [refineBase] with [refineStrokes] applied; what the canvas shows. */
+    val refinePreview: Bitmap? = null,
+    val refineStrokes: List<BrushStroke> = emptyList(),
+    /** Next stroke paints the photo back in (true) or removes from the cutout (false). */
+    val refineRestore: Boolean = false,
     // Crop
     val isCropping: Boolean = false,
     val cropRect: Rect = FullFrame,      // normalised 0..1
@@ -77,9 +89,12 @@ data class EditorState(
         }
     val hasImage get() = original != null
     val canUndo get() = history.isNotEmpty()
-    val isInTool get() = isErasing || isCropping
+    val isInTool get() = isErasing || isCropping || isRefining
     val cropChanged get() = cropRect != FullFrame
 }
+
+/** What undo goes back to. */
+data class Snapshot(val original: Bitmap, val cutout: Bitmap?)
 
 class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -206,17 +221,18 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         val previous = s.history.lastOrNull() ?: return
         if (s.isApplyingErase) return
-        val showCutout = s.useCutout
+        val showCutout = s.useCutout || s.restoreCutoutAfterEdit
         _state.update {
             it.copy(
-                original = previous,
-                cutout = null,
-                useCutout = false,
+                original = previous.original,
+                cutout = previous.cutout,
+                useCutout = previous.cutout != null && s.useCutout,
                 eraseStrokes = emptyList(),
                 history = it.history.dropLast(1),
             )
         }
-        if (showCutout && !s.isInTool) removeBackground()
+        // Edits from before snapshots kept cutouts have none; make it again if it was showing.
+        if (showCutout && previous.cutout == null && !s.isInTool) removeBackground()
     }
 
     /** Leaves erase/crop mode and brings the cutout back if it was showing before. */
@@ -276,7 +292,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                             cutout = product,
                             eraseStrokes = emptyList(),
                             isApplyingErase = false,
-                            history = (it.history + original).takeLast(MAX_UNDO),
+                            history = (it.history + Snapshot(original, s.cutout)).takeLast(MAX_UNDO),
                         )
                     }
                 }
@@ -297,6 +313,112 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val out = if (filled.isMutable) filled else filled.copy(Bitmap.Config.ARGB_8888, true)
         android.graphics.Canvas(out).drawBitmap(product, null, android.graphics.Rect(0, 0, out.width, out.height), null)
         return out
+    }
+
+    // ---------- Touch up cutout ----------
+
+    /**
+     * Starts hand fixes on the cutout, making one first if needed. If background removal finds nothing usable
+     * (no product, or a garbled mask) it starts empty, and the product can be painted in with Restore.
+     */
+    fun startRefine() {
+        val s = _state.value
+        val original = s.original ?: return
+        if (s.isRemovingBackground || s.isInTool) return
+        if (s.cutout != null) { enterRefine(original, s.cutout); return }
+        // No cutout yet: try background removal first, so there's usually something to fix rather than redo.
+        viewModelScope.launch {
+            _state.update { it.copy(isRemovingBackground = true, message = null) }
+            val cut = runCatching { remover.remove(original).cutout }.getOrNull()
+            _state.update { it.copy(isRemovingBackground = false) }
+            val now = _state.value
+            if (now.original === original && !now.isInTool) enterRefine(original, cut)
+        }
+    }
+
+    private fun enterRefine(original: Bitmap, cutout: Bitmap?) {
+        val base = cutout ?: Bitmap.createBitmap(original.width, original.height, Bitmap.Config.ARGB_8888)
+        refineJob?.cancel()
+        refineJob = null
+        refineBitmap = base
+        _state.update {
+            it.copy(
+                isRefining = true,
+                refineBase = base,
+                refinePreview = base,
+                refineStrokes = emptyList(),
+                // Nothing to remove from an empty cutout, so start where the work is.
+                refineRestore = cutout == null,
+                message = if (cutout == null) "No cutout this time. Paint over the product with Restore to cut it out by hand." else it.message,
+            )
+        }
+    }
+
+    fun setRefineRestore(restore: Boolean) = _state.update { it.copy(refineRestore = restore) }
+
+    fun addRefineStroke(stroke: EraseStroke) {
+        val s = _state.value
+        if (!s.isRefining) return
+        val original = s.original ?: return
+        val brush = BrushStroke(stroke.points, stroke.radius, restore = s.refineRestore)
+        _state.update { it.copy(refineStrokes = it.refineStrokes + brush) }
+        // Only the new stroke is drawn, on top of the latest render.
+        queueRefine { current -> CutoutBrush.apply(current, original, listOf(brush)) }
+    }
+
+    fun undoRefineStroke() {
+        val s = _state.value
+        val base = s.refineBase ?: return
+        val original = s.original ?: return
+        if (s.refineStrokes.isEmpty()) return
+        val strokes = s.refineStrokes.dropLast(1)
+        _state.update { it.copy(refineStrokes = strokes) }
+        queueRefine { if (strokes.isEmpty()) base else CutoutBrush.apply(base, original, strokes) }
+    }
+
+    private var refineJob: Job? = null
+    /** Latest render, owned by the queue below; it always includes every stroke queued before it. */
+    private var refineBitmap: Bitmap? = null
+
+    /** Renders run one after another in the order queued, so fast strokes and undos can't land out of order. */
+    private fun queueRefine(render: (current: Bitmap) -> Bitmap) {
+        val previous = refineJob
+        refineJob = viewModelScope.launch {
+            previous?.join()
+            val current = refineBitmap ?: return@launch
+            val bmp = withContext(Dispatchers.Default) { render(current) }
+            refineBitmap = bmp
+            _state.update { if (it.isRefining) it.copy(refinePreview = bmp) else it }
+        }
+    }
+
+    fun cancelRefine() {
+        refineJob?.cancel()
+        refineBitmap = null
+        _state.update { it.copy(isRefining = false, refineBase = null, refinePreview = null, refineStrokes = emptyList()) }
+    }
+
+    fun applyRefine() {
+        val s = _state.value
+        val original = s.original ?: return
+        if (!s.isRefining) return
+        if (s.refineStrokes.isEmpty()) { cancelRefine(); return }
+        viewModelScope.launch {
+            refineJob?.join()
+            val result = refineBitmap ?: return@launch
+            refineBitmap = null
+            _state.update {
+                it.copy(
+                    cutout = result,
+                    useCutout = true,
+                    isRefining = false,
+                    refineBase = null,
+                    refinePreview = null,
+                    refineStrokes = emptyList(),
+                    history = (it.history + Snapshot(original, s.cutout)).takeLast(MAX_UNDO),
+                )
+            }
+        }
     }
 
     // ---------- Crop ----------
@@ -361,7 +483,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             it.copy(
                 original = cropped,
                 cutout = cutout,
-                history = (it.history + original).takeLast(MAX_UNDO),
+                history = (it.history + Snapshot(original, s.cutout)).takeLast(MAX_UNDO),
             )
         }
         leaveTool()
