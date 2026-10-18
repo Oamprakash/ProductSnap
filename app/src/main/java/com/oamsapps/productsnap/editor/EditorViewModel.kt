@@ -51,7 +51,10 @@ import android.graphics.Rect as PixelRect
 private val FullFrame = Rect(0f, 0f, 1f, 1f)
 
 data class EditorState(
+    /** The working photo; crop and magic eraser replace it. */
     val original: Bitmap? = null,
+    /** The photo as opened, for Hold to compare; never edited. */
+    val source: Bitmap? = null,
     val cutout: Bitmap? = null,
     val useCutout: Boolean = false,
     val background: BackgroundStyle = BackgroundPresets.WHITE,
@@ -237,6 +240,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { s ->
                     EditorState(
                         original = bmp,
+                        source = bmp,
                         background = s.background,
                         backgroundPhoto = s.backgroundPhoto,
                         squareCanvas = s.squareCanvas,

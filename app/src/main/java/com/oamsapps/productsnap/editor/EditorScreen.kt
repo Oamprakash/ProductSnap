@@ -532,7 +532,7 @@ private fun Preview(state: EditorState) {
 
     // Held down: the photo as it was taken, for an honest before/after.
     var comparing by remember { mutableStateOf(false) }
-    val originalImage = remember(state.original) { state.original?.asImageBitmap() }
+    val originalImage = remember(state.source) { state.source?.asImageBitmap() }
     val marks = remember(state.flaws, state.circleFlaws, bmp) { state.flawMarks(bmp) }
     val inset = if (!natural && aspect != null) 20.dp else 0.dp
 
@@ -573,8 +573,9 @@ private fun Preview(state: EditorState) {
                 }
             }
         }
-        // Always there once a photo is open, so it's easy to find; with nothing edited yet it simply shows the same photo.
-        if (state.original != null) {
+        // Only once something has changed: a cutout, crop, erase, light or slider change, or flaw circles.
+        val edited = state.source != null && (state.source !== bmp || filter != null || marks.isNotEmpty())
+        if (edited) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
                 color = if (comparing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.85f),
