@@ -11,6 +11,7 @@ import com.oamsapps.imaging.CutoutBrush
 import com.oamsapps.imaging.LightFix
 import com.oamsapps.imaging.PhotoCheck
 import com.oamsapps.imaging.PhotoWarning
+import com.oamsapps.productsnap.batch.BatchSettings
 import com.oamsapps.productsnap.billing.PremiumManager
 import com.oamsapps.productsnap.billing.FreeAllowance
 import com.oamsapps.productsnap.image.Adjustments
@@ -155,9 +156,38 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun loadImage(uri: Uri) = viewModelScope.launch {
+    fun loadImage(uri: Uri) = viewModelScope.launch { load(uri) }
+
+    /**
+     * Opens a batch photo with the batch's look (marketplace, background, shape, light, sliders, shadow), so the
+     * editor shows what batch saved rather than whatever the editor last used. Removes the background again when
+     * batch did.
+     */
+    fun loadImage(uri: Uri, look: BatchSettings) = viewModelScope.launch {
+        _state.update {
+            it.copy(
+                background = look.background,
+                backgroundPhoto = null,
+                squareCanvas = look.squareCanvas,
+                marketplace = look.marketplace,
+                adjustments = look.adjustments,
+                lightStrength = look.lightStrength,
+                shadow = look.shadow,
+            )
+        }
+        (look.background as? BackgroundStyle.Photo)?.let { style ->
+            launch {
+                val bmp = runCatching { BackgroundPhotos.prepare(style, BACKGROUND_MAX_EDGE) }.getOrNull()
+                _state.update { if (it.background == style) it.copy(backgroundPhoto = bmp) else it }
+            }
+        }
+        if (load(uri) && (look.removeBackground || look.background == BackgroundStyle.Natural)) removeBackground()
+    }
+
+    /** Loads the photo keeping the current look; false if it couldn't be opened. */
+    private suspend fun load(uri: Uri): Boolean {
         _state.update { it.copy(isLoading = true, message = null) }
-        runCatching { BitmapLoader.load(getApplication(), uri) }
+        return runCatching { BitmapLoader.load(getApplication(), uri) }
             .onSuccess { bmp ->
                 val dark = runCatching { withContext(Dispatchers.Default) { PhotoCheck.isTooDark(bmp) } }.getOrDefault(false)
                 // Keep the user's look (background, canvas, adjustments, brush) across photos.
@@ -177,6 +207,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             .onFailure { _state.update { s -> s.copy(isLoading = false, message = "Couldn't open that photo. Try a different one.") } }
+            .isSuccess
     }
 
     fun removeBackground() {

@@ -79,6 +79,18 @@ data class BatchState(
     val failedCount get() = items.count { it.status is ItemStatus.Failed }
     val progress get() = if (items.isEmpty()) 0f else finishedCount.toFloat() / items.size
     val canEdit get() = !isRunning && !isImporting
+
+    /** The batch's look, for opening one of its photos in the editor. */
+    val settings get() = BatchSettings(
+        removeBackground = removeBackground,
+        background = background,
+        squareCanvas = squareCanvas,
+        adjustments = adjustments,
+        crop = crop,
+        shadow = shadow,
+        lightStrength = lightStrength,
+        marketplace = marketplace,
+    )
 }
 
 /**
