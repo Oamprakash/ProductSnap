@@ -5,6 +5,7 @@ import com.oamsapps.productsnap.image.Adjustments
 import com.oamsapps.productsnap.image.BatchCrop
 import com.oamsapps.productsnap.image.ExportSettings
 import com.oamsapps.productsnap.image.LightStrength
+import com.oamsapps.productsnap.image.Marketplace
 import com.oamsapps.productsnap.image.background.BackgroundPresets
 import com.oamsapps.productsnap.image.background.BackgroundStyle
 import com.oamsapps.productsnap.image.background.backgroundFromJson
@@ -39,6 +40,8 @@ data class BatchSettings(
     val shadow: Boolean = true,
     /** Auto light level for each photo's measured light fix (only with background removal). */
     val lightStrength: LightStrength = LightStrength.DEFAULT,
+    /** Shape and size for a marketplace; overrides [squareCanvas]. */
+    val marketplace: Marketplace? = null,
 ) {
     fun toExport(premium: Boolean) = ExportSettings(
         removeBackground = removeBackground,
@@ -49,6 +52,7 @@ data class BatchSettings(
         crop = crop,
         shadow = shadow,
         lightStrength = lightStrength,
+        marketplace = marketplace,
     )
 }
 
@@ -126,6 +130,7 @@ class BatchStore private constructor(context: Context) {
             put("crop", job.settings.crop.name)
             put("shadow", job.settings.shadow)
             put("lightStrength", job.settings.lightStrength.name)
+            job.settings.marketplace?.let { put("marketplace", it.name) }
         })
         put("items", JSONArray().apply {
             job.items.forEach { item ->
@@ -156,6 +161,7 @@ class BatchStore private constructor(context: Context) {
             crop = runCatching { BatchCrop.valueOf(s.optString("crop", "NONE")) }.getOrDefault(BatchCrop.NONE),
             shadow = s.optBoolean("shadow", true),
             // Builds before the levels had an on/off switch.
+            marketplace = Marketplace.fromName(s.optString("marketplace", "")),
             lightStrength = if (s.has("lightStrength")) LightStrength.fromName(s.getString("lightStrength"))
                 else if (!s.optBoolean("autoLight", true)) LightStrength.OFF else LightStrength.DEFAULT,
         )

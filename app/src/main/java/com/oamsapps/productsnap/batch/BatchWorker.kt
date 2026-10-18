@@ -71,7 +71,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         }
         val remover = BackgroundRemover.shared(applicationContext)
         try {
-            if (settings.removeBackground) clock.time(RunClock.MODEL) { remover.warmUp() }
+            if (settings.needsSegmentation) clock.time(RunClock.MODEL) { remover.warmUp() }
             coroutineScope {
                 val loaded = Channel<Loaded>(capacity = 0)
                 val segmented = Channel<Prepared>(capacity = 0)
@@ -170,7 +170,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
             clock.time(RunClock.LOAD) {
                 original = BitmapLoader.load(File(item.inputPath), maxEdge = settings.maxEdge)
                 if (PhotoCheck.isTooDark(original!!)) store.update { it.withWarning(item.id, PhotoWarning.TOO_DARK.name) }
-                if (settings.removeBackground) {
+                if (settings.needsSegmentation) {
                     // The input holds its own normalized copy, so the decoded photo can go now.
                     val input = remover.prepareInput(original!!)
                     original!!.recycle()
@@ -225,7 +225,21 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         var cropped: Bitmap? = null
         var shadowed: Bitmap? = null
         var light = LightFix.NONE
+        var photo: Bitmap? = null
         try {
+            if (settings.isNatural && p.segmented != null) {
+                // Natural background: the photo itself, lit and framed around the product. Without a usable
+                // cutout it's framed on the centre, unlit, rather than not saved.
+                val removal = clock.time(RunClock.CUTOUT) { remover.finish(p.segmented, keepPhoto = true) }
+                photo = removal.photo
+                cutout = removal.cutout
+                light = if (removal.cutout != null) removal.light else LightFix.NONE
+                val framed = clock.time(RunClock.CROP_SHADOW) {
+                    Cropper.natural(photo ?: return Outcome(StoredStatus.FAILED, "Photo couldn't be read"), cutout, settings.canvasAspect)
+                }
+                if (framed !== photo) cropped = framed
+                return render(p.item, framed, settings, light, backgroundPhoto, clock)
+            }
             val uncropped = if (p.segmented != null) {
                 val removal = clock.time(RunClock.CUTOUT) { remover.finish(p.segmented) }
                 when {
@@ -249,12 +263,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                 if (withShadow !== croppedContent) shadowed = withShadow
                 withShadow
             }
-            val spec = settings.renderSpec(content, backgroundPhoto).let { spec ->
-                val fix = settings.lightStrength.apply(light)
-                if (fix != LightFix.NONE) spec.copy(adjustments = spec.adjustments.copy(light = fix)) else spec
-            }
-            val out = clock.time(RunClock.RENDER) { ImageRenderer.render(spec) }
-            return Rendered(p.item, out)
+            return render(p.item, content, settings, light, backgroundPhoto, clock)
         } catch (e: CancellationException) {
             throw e
         } catch (e: OutOfMemoryError) {
@@ -264,16 +273,32 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
             return Outcome(StoredStatus.FAILED, (e.message ?: "Unknown error").take(120))
         } finally {
             original?.recycle()
+            photo?.recycle()
             cutout?.recycle()
             cropped?.recycle()
             shadowed?.recycle()
         }
     }
 
+    private suspend fun render(
+        item: StoredItem,
+        content: Bitmap,
+        settings: ExportSettings,
+        light: LightFix,
+        backgroundPhoto: Bitmap?,
+        clock: RunClock,
+    ): Rendered {
+        val spec = settings.renderSpec(content, backgroundPhoto).let { spec ->
+            val fix = settings.lightStrength.apply(light)
+            if (fix != LightFix.NONE) spec.copy(adjustments = spec.adjustments.copy(light = fix)) else spec
+        }
+        return Rendered(item, clock.time(RunClock.RENDER) { ImageRenderer.render(spec) })
+    }
+
     /** Stage 4. Frees the rendered image. */
     private suspend fun save(r: Rendered, settings: ExportSettings, clock: RunClock): Outcome =
         try {
-            clock.time(RunClock.SAVE) { ImageSaver.saveToGallery(applicationContext, r.bitmap, transparent = settings.transparent) }
+            clock.time(RunClock.SAVE) { ImageSaver.saveToGallery(applicationContext, r.bitmap, transparent = settings.transparent, quality = settings.jpegQuality) }
             Outcome(StoredStatus.SAVED)
         } catch (e: CancellationException) {
             throw e

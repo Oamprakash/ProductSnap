@@ -3,6 +3,7 @@ package com.oamsapps.productsnap.batch
 import android.util.Log
 import com.oamsapps.productsnap.image.BackgroundRemover
 import com.oamsapps.productsnap.image.LightStrength
+import com.oamsapps.productsnap.image.Marketplace
 import com.oamsapps.imaging.PhotoWarning
 import android.app.Application
 import android.graphics.Bitmap
@@ -62,6 +63,7 @@ data class BatchState(
     val crop: BatchCrop = BatchCrop.NONE,
     val shadow: Boolean = true,
     val lightStrength: LightStrength = LightStrength.DEFAULT,
+    val marketplace: Marketplace? = null,
     val isRunning: Boolean = false,
     val isImporting: Boolean = false,
     val message: String? = null,
@@ -129,6 +131,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
                     adjustments = editor.adjustments,
                     shadow = editor.shadow,
                     lightStrength = editor.lightStrength,
+                    marketplace = editor.marketplace,
                 )
             )
         }
@@ -219,6 +222,16 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
     fun setCrop(crop: BatchCrop) = editSettings { it.copy(crop = crop) }
     fun setShadow(on: Boolean) = editSettings { it.copy(shadow = on) }
     fun setLightStrength(strength: LightStrength) = editSettings { it.copy(lightStrength = strength) }
+
+    /** Same rule as the editor: Vinted keeps the real background, the others a clean one. */
+    fun setMarketplace(m: Marketplace?) = editSettings {
+        val bg = when {
+            m?.natural == true -> BackgroundStyle.Natural
+            m != null && (it.background == BackgroundStyle.Natural || it.background.isTransparent) -> BackgroundPresets.WHITE
+            else -> it.background
+        }
+        it.copy(marketplace = m, background = bg, removeBackground = it.removeBackground || !bg.isPlainColor)
+    }
     fun clearMessage() = _state.update { it.copy(message = null, messageOffersUpgrade = false) }
 
     private fun editSettings(change: (BatchSettings) -> BatchSettings) {
@@ -282,6 +295,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
                 crop = job.settings.crop,
                 shadow = job.settings.shadow,
                 lightStrength = job.settings.lightStrength,
+                marketplace = job.settings.marketplace,
                 isRunning = running,
                 timing = job.timing,
             )

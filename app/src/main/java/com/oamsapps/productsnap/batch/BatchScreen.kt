@@ -35,8 +35,11 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oamsapps.imaging.PhotoWarning
 import com.oamsapps.productsnap.billing.PremiumManager
+import com.oamsapps.productsnap.image.background.BackgroundStyle
+import androidx.compose.runtime.getValue
 import com.oamsapps.productsnap.editor.BackgroundPicker
 import com.oamsapps.productsnap.editor.LightStrengthPicker
+import com.oamsapps.productsnap.editor.MarketplacePicker
 import com.oamsapps.productsnap.image.BatchCrop
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -155,15 +158,18 @@ fun BatchScreen(vm: BatchViewModel, onBack: () -> Unit, onOpenPaywall: () -> Uni
 @Composable
 private fun SettingsCard(state: BatchState, vm: BatchViewModel, onChoosePhoto: () -> Unit) {
     val enabled = state.canEdit
+    val premium by vm.isPremium.collectAsStateWithLifecycle()
+    val natural = state.background == BackgroundStyle.Natural
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Applied to every photo", style = MaterialTheme.typography.titleMedium)
             SettingSwitch("Remove background", state.removeBackground, enabled, vm::setRemoveBackground)
-            if (state.removeBackground) {
-                SettingSwitch("Shadow under product", state.shadow, enabled, vm::setShadow)
+            if (state.removeBackground || natural) {
+                if (!natural) SettingSwitch("Shadow under product", state.shadow, enabled, vm::setShadow)
                 LightStrengthPicker(state.lightStrength, enabled, vm::setLightStrength)
             }
-            SettingSwitch("Square for marketplaces", state.squareCanvas, enabled, vm::setSquare)
+            MarketplacePicker(state.marketplace, enabled, premium, vm::setMarketplace)
+            if (state.marketplace == null) SettingSwitch("Square", state.squareCanvas, enabled, vm::setSquare)
             Text("Background", style = MaterialTheme.typography.bodyLarge)
             BackgroundPicker(
                 selected = state.background,
@@ -210,6 +216,8 @@ private fun CropChips(state: BatchState, enabled: Boolean, onSelect: (BatchCrop)
             }
         }
         val note = when {
+            state.background == BackgroundStyle.Natural ->
+                "With Natural, each photo is framed around the product instead; this crop isn't used."
             state.crop == BatchCrop.TIGHT && !state.removeBackground ->
                 "Turn on Remove background to fit the crop to the product."
             state.crop == BatchCrop.TIGHT ->

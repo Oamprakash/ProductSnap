@@ -16,9 +16,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import com.oamsapps.productsnap.image.LightStrength
+import com.oamsapps.productsnap.image.Marketplace
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -70,6 +72,7 @@ fun BackgroundPicker(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.alpha(if (enabled) 1f else 0.5f),
     ) {
+        NaturalOption(selected == BackgroundStyle.Natural, enabled) { onSelect(BackgroundStyle.Natural) }
         SwatchRow(BackgroundPresets.solids, selected, enabled, onSelect)
         SwatchRow(BackgroundPresets.scenes, selected, enabled, onSelect)
 
@@ -112,6 +115,28 @@ fun BackgroundPicker(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+/** Keep the real background: a chip, since it isn't a colour swatch. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NaturalOption(selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        FilterChip(
+            selected = selected,
+            onClick = onClick,
+            enabled = enabled,
+            label = { Text("Natural: keep your background") },
+            leadingIcon = { Icon(Icons.Default.Landscape, null, Modifier.size(18.dp)) },
+        )
+        if (selected) {
+            Text(
+                "Your real background, with light and framing only. Good for Vinted, which asks for unedited photos.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -169,6 +194,8 @@ fun Modifier.backgroundStyle(style: BackgroundStyle, photo: ImageBitmap?, shape:
                 )
             )
         }
+        // The photo itself is shown; nothing behind it.
+        BackgroundStyle.Natural -> this
         is BackgroundStyle.Photo -> drawBehind {
             if (photo == null) { drawRect(Color.White); return@drawBehind }
             // Cover: crop the source to the view's shape, centred.
@@ -217,5 +244,30 @@ fun LightStrengthPicker(selected: LightStrength, enabled: Boolean, onSelect: (Li
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/** "Made for": one tap sets the shape, size and background a marketplace wants. Shared by editor and batch. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MarketplacePicker(selected: Marketplace?, enabled: Boolean, premium: Boolean, onSelect: (Marketplace?) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Made for", style = MaterialTheme.typography.bodyMedium)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+        ) {
+            FilterChip(selected = selected == null, onClick = { onSelect(null) }, enabled = enabled, label = { Text("Any") })
+            Marketplace.entries.forEach { m ->
+                FilterChip(selected = m == selected, onClick = { onSelect(m) }, enabled = enabled, label = { Text(m.label) })
+            }
+        }
+        selected?.let { m ->
+            Text(
+                m.note + if (!premium) " Free saves carry a watermark, which most marketplaces don't allow; Premium removes it." else "",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }

@@ -9,6 +9,7 @@ import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
+import com.oamsapps.imaging.Framing
 import com.oamsapps.productsnap.image.background.BackgroundStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,9 +22,13 @@ data class RenderSpec(
     val adjustments: Adjustments,
     val background: BackgroundStyle?, // null = keep transparent / original
     val backgroundPhoto: Bitmap? = null, // prepared bitmap for BackgroundStyle.Photo
-    val squareCanvas: Boolean,        // marketplace-style 1:1 with padding
+    /** Canvas shape (width / height), padded around the content; null keeps the content's own shape. */
+    val canvasAspect: Float?,
     val paddingFraction: Float = 0.08f,
-    val maxOutputEdge: Int,           // free vs premium resolution
+    val maxOutputEdge: Int,
+    /** Exact output size (a marketplace preset); otherwise scaled down to [maxOutputEdge]. */
+    val outWidth: Int? = null,
+    val outHeight: Int? = null,
     val watermark: String?,           // null for premium
 )
 
@@ -37,16 +42,12 @@ object ImageRenderer {
     suspend fun render(spec: RenderSpec): Bitmap = withContext(Dispatchers.Default) {
         val src = spec.content
 
-        // 1. Work out output size.
-        val (outW, outH) = if (spec.squareCanvas) {
-            val side = (max(src.width, src.height) * (1f + 2 * spec.paddingFraction)).roundToInt()
-            side to side
-        } else {
-            src.width to src.height
-        }
-        val scale = minOf(1f, spec.maxOutputEdge.toFloat() / max(outW, outH))
-        val w = (outW * scale).roundToInt()
-        val h = (outH * scale).roundToInt()
+        // 1. Work out output size and where the content goes (tested in core:imaging).
+        val layout = Framing.layout(
+            src.width, src.height, spec.canvasAspect, spec.paddingFraction, spec.maxOutputEdge, spec.outWidth, spec.outHeight,
+        )
+        val w = layout.width
+        val h = layout.height
 
         val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
@@ -60,11 +61,7 @@ object ImageRenderer {
                 colorFilter = ColorMatrixColorFilter(spec.adjustments.toColorMatrix())
             }
         }
-        val drawW = src.width * scale
-        val drawH = src.height * scale
-        val left = (w - drawW) / 2f
-        val top = (h - drawH) / 2f
-        canvas.drawBitmap(src, null, RectF(left, top, left + drawW, top + drawH), paint)
+        canvas.drawBitmap(src, null, RectF(layout.left, layout.top, layout.left + layout.drawWidth, layout.top + layout.drawHeight), paint)
 
         // 4. Watermark for free exports.
         spec.watermark?.let { drawWatermark(canvas, it, w, h) }
@@ -87,6 +84,8 @@ object ImageRenderer {
                 )
                 canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
             }
+            // Natural content is the photo itself; nothing to draw behind it.
+            BackgroundStyle.Natural -> Unit
             is BackgroundStyle.Photo -> {
                 if (photo == null) { canvas.drawColor(0xFFFFFFFF.toInt()); return }
                 // Cover: fill the canvas, crop the overflow, keep it centred.
