@@ -25,6 +25,9 @@ import androidx.compose.material.icons.filled.Healing
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.material.icons.filled.Compare
 import com.oamsapps.productsnap.ui.shareIntent
 import com.oamsapps.productsnap.ui.PhotoTips
 import com.oamsapps.productsnap.ui.PhotoTipsDialog
@@ -570,13 +573,16 @@ private fun Preview(state: EditorState) {
                 }
             }
         }
-        if (state.original != null && (state.original !== bmp || filter != null)) {
+        // Always there once a photo is open, so it's easy to find; with nothing edited yet it simply shows the same photo.
+        if (state.original != null) {
             Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color.Black.copy(alpha = 0.55f),
+                shape = RoundedCornerShape(20.dp),
+                color = if (comparing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.85f),
+                contentColor = if (comparing) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.inverseOnSurface,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(8.dp)
+                    .padding(10.dp)
+                    .semantics { contentDescription = "Hold to see the original photo" }
                     .pointerInput(Unit) {
                         detectTapGestures(onPress = {
                             comparing = true
@@ -584,12 +590,11 @@ private fun Preview(state: EditorState) {
                         })
                     },
             ) {
-                Text(
-                    if (comparing) "Original" else "Hold to compare",
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                )
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Compare, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (comparing) "Original photo" else "Hold to compare", style = MaterialTheme.typography.labelLarge)
+                }
             }
         }
         if (zoom.isZoomed) {
