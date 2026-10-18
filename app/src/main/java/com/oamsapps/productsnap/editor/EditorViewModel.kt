@@ -32,6 +32,8 @@ import com.oamsapps.productsnap.image.background.BackgroundPresets
 import com.oamsapps.productsnap.image.background.BackgroundStyle
 import com.oamsapps.productsnap.image.erase.EraseStroke
 import com.oamsapps.productsnap.image.erase.MagicEraser
+import com.oamsapps.productsnap.telemetry.Telemetry
+import com.oamsapps.productsnap.telemetry.kind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -230,6 +232,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         return runCatching { BitmapLoader.load(getApplication(), uri) }
             .onSuccess { bmp ->
                 val dark = runCatching { withContext(Dispatchers.Default) { PhotoCheck.isTooDark(bmp) } }.getOrDefault(false)
+                if (dark) Telemetry.event("photo_warning", "type" to PhotoWarning.TOO_DARK.name)
                 // Keep the user's look (background, canvas, adjustments, brush) across photos.
                 _state.update { s ->
                     EditorState(
@@ -261,6 +264,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             runCatching { remover.remove(original) }
                 .onSuccess { removal ->
                     val cut = removal.cutout
+                    Telemetry.event("cutout", "source" to "editor", "verdict" to removal.verdict.name, "runs_off_edge" to removal.runsOffEdge)
+                    if (removal.runsOffEdge) Telemetry.event("photo_warning", "type" to PhotoWarning.RUNS_OFF_EDGE.name)
                     _state.update {
                         // Ignore a stale result if the photo changed while this was running.
                         if (it.original !== original) it.copy(isRemovingBackground = false)
@@ -408,6 +413,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val original = s.original ?: return
         if (s.eraseStrokes.isEmpty() || s.isApplyingErase) return
         val strokes = s.eraseStrokes
+        Telemetry.event("tool_used", "tool" to "magic_eraser", "strokes" to strokes.size)
 
         viewModelScope.launch {
             _state.update { it.copy(isApplyingErase = true, message = null) }
@@ -537,6 +543,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val original = s.original ?: return
         if (!s.isRefining) return
         if (s.refineStrokes.isEmpty()) { cancelRefine(); return }
+        Telemetry.event("tool_used", "tool" to "fix_cutout", "strokes" to s.refineStrokes.size, "from_empty" to (s.cutout == null))
         viewModelScope.launch {
             refineJob?.join()
             val result = refineBitmap ?: return@launch
@@ -612,6 +619,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (!s.isCropping) return
         if (!s.cropChanged) { cancelCrop(); return }
 
+        Telemetry.event("tool_used", "tool" to "crop", "aspect" to (s.cropAspect?.toString() ?: "free"))
         val cropped = Cropper.crop(original, s.cropRect.pixelsIn(original))
         // The cutout is the same photo, so crop it the same way instead of recomputing it.
         val cutout = s.cutout?.let { Cropper.crop(it, s.cropRect.pixelsIn(it)) }
@@ -699,6 +707,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 uris
             }.onSuccess { uris ->
                 if (freeSave) FreeAllowance.markUsed(getApplication())
+                Telemetry.event(
+                    if (share) "photos_shared" else "photo_saved",
+                    "source" to "editor",
+                    "marketplace" to (s.marketplace?.name ?: "any"),
+                    "background" to s.background.kind,
+                    "cutout" to s.useCutout,
+                    "close_ups" to s.flaws.size,
+                    "circles" to (s.circleFlaws && s.flaws.isNotEmpty()),
+                    "light" to s.lightStrength.name,
+                    "premium" to settings.premium,
+                )
                 val what = if (uris.size > 1) "${uris.size} photos (with ${uris.size - 1} close-up${if (uris.size > 2) "s" else ""})" else "your photo"
                 val message = when {
                     share -> null

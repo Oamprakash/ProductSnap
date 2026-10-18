@@ -11,3 +11,5 @@ app/release/
 *.jks
 *.keystore
 productSnapKeystore
+# Firebase config: kept out of the public repo; CI writes it from a secret
+google-services.json

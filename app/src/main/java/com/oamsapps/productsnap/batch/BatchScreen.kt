@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.WarningAmber
 import com.oamsapps.productsnap.ui.shareIntent
+import com.oamsapps.productsnap.telemetry.Telemetry
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -389,7 +390,10 @@ private fun BatchBottomBar(
                     if (state.savedUris.isNotEmpty()) {
                         val context = LocalContext.current
                         OutlinedButton(
-                            onClick = { runCatching { context.startActivity(shareIntent(state.savedUris)) } },
+                            onClick = {
+                                Telemetry.event("photos_shared", "source" to "batch", "count" to state.savedUris.size)
+                                runCatching { context.startActivity(shareIntent(state.savedUris)) }
+                            },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Icon(Icons.Default.Share, null)

@@ -4,6 +4,14 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Firebase (Crashlytics and Analytics) is switched on by app/google-services.json, which is kept out of this
+// public repo: copy it in from the Firebase console locally, and CI writes it from the GOOGLE_SERVICES_JSON secret.
+// Without it the app builds and runs with telemetry off.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+}
+
 // Short commit ID, shown in the app's header and version name so every test report names its build.
 // CI sets GITHUB_SHA; local builds ask git.
 val buildId: String = System.getenv("GITHUB_SHA")?.take(7)
@@ -70,4 +78,9 @@ dependencies {
 
     // Premium subscription
     implementation("com.android.billingclient:billing-ktx:7.1.1")
+
+    // Crash reports and usage events (active only with google-services.json; see the top of this file)
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-crashlytics")
+    implementation("com.google.firebase:firebase-analytics")
 }
