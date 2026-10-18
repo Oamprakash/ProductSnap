@@ -12,6 +12,11 @@ sealed interface BackgroundStyle {
     data class Studio(val center: Int, val edge: Int) : BackgroundStyle
     /** The user's own photo, stored in app storage at [path]. */
     data class Photo(val path: String, val blur: Boolean) : BackgroundStyle
+    /**
+     * The seller's own background, as photographed: only lighting and framing change. The cutout is still made,
+     * to centre the crop on the product and to measure the light.
+     */
+    data object Natural : BackgroundStyle
 
     val isTransparent get() = this is Solid && Color.alpha(color) == 0
     val isPlainColor get() = this is Solid
@@ -48,6 +53,7 @@ fun BackgroundStyle.toJson(): JSONObject = JSONObject().apply {
         is BackgroundStyle.Gradient -> { put("type", "gradient"); put("top", s.top); put("bottom", s.bottom) }
         is BackgroundStyle.Studio -> { put("type", "studio"); put("center", s.center); put("edge", s.edge) }
         is BackgroundStyle.Photo -> { put("type", "photo"); put("path", s.path); put("blur", s.blur) }
+        BackgroundStyle.Natural -> put("type", "natural")
     }
 }
 
@@ -57,6 +63,7 @@ fun backgroundFromJson(o: JSONObject?): BackgroundStyle? = runCatching {
         "gradient" -> BackgroundStyle.Gradient(o.getInt("top"), o.getInt("bottom"))
         "studio" -> BackgroundStyle.Studio(o.getInt("center"), o.getInt("edge"))
         "photo" -> BackgroundStyle.Photo(o.getString("path"), o.optBoolean("blur", true))
+        "natural" -> BackgroundStyle.Natural
         else -> null
     }
 }.getOrNull()

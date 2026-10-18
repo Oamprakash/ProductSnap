@@ -24,6 +24,8 @@ class Removal(
     val light: LightFix = LightFix.NONE,
     /** The cutout runs along the photo's edge; worth a check (see [PhotoCheck]). */
     val runsOffEdge: Boolean = false,
+    /** The normalized photo, when [BackgroundRemover.finish] was asked to keep it; the caller frees it. */
+    val photo: Bitmap? = null,
 ) {
     /** Something was found but the mask is unusable (garbled, or everything): worth a person's look. */
     val needsLook get() = verdict == MaskVerdict.CORRUPTED || verdict == MaskVerdict.FULL
@@ -66,8 +68,12 @@ class BackgroundRemover private constructor(context: Context) {
 
     suspend fun segment(source: Bitmap): Segmented = segment(prepareInput(source))
 
-    /** Stage 2: cleanup and compositing. Frees the normalized copy. */
-    suspend fun finish(s: Segmented): Removal = withContext(Dispatchers.Default) {
+    /**
+     * Stage 2: cleanup and compositing. Frees the normalized copy, unless [keepPhoto] (the Natural background
+     * needs the photo itself), in which case it's returned in [Removal.photo].
+     */
+    suspend fun finish(s: Segmented, keepPhoto: Boolean = false): Removal = withContext(Dispatchers.Default) {
+        var kept = false
         try {
             val result = pipeline.finish(s)
             if (result.verdict == MaskVerdict.OK) {
@@ -81,9 +87,10 @@ class BackgroundRemover private constructor(context: Context) {
                 result.verdict,
                 result.light,
                 runsOffEdge = result.cutout != null && PhotoCheck.runsOffEdge(result.mask),
+                photo = if (keepPhoto) s.full.also { kept = true } else null,
             )
         } finally {
-            s.full.recycle()
+            if (!kept) s.full.recycle()
         }
     }
 

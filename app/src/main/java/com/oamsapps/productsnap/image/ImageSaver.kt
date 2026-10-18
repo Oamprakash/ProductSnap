@@ -16,6 +16,7 @@ object ImageSaver {
         context: Context,
         bitmap: Bitmap,
         transparent: Boolean,
+        quality: Int = 95,
     ): Uri = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
         val ext = if (transparent) "png" else "jpg"
@@ -31,7 +32,7 @@ object ImageSaver {
         try {
             resolver.openOutputStream(uri)?.use { stream ->
                 val format = if (transparent) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG
-                check(bitmap.compress(format, 95, stream)) { "Couldn't encode the image" }
+                check(bitmap.compress(format, quality, stream)) { "Couldn't encode the image" }
             } ?: error("Couldn't open the gallery file")
 
             values.clear()

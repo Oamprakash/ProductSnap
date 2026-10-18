@@ -242,7 +242,7 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                             Text("Magic eraser")
                         }
                     }
-                    BackgroundControls(state, vm, onChoosePhoto = pickBackground)
+                    BackgroundControls(state, vm, premium, onChoosePhoto = pickBackground)
                     AdjustmentControls(state, vm)
                 }
         }
@@ -443,13 +443,15 @@ private fun Preview(state: EditorState) {
         if (adjustments.isNeutral) null
         else ColorFilter.colorMatrix(ColorMatrix(adjustments.toColorMatrix().array))
     }
-    val fillsBackground = state.useCutout || state.squareCanvas
+    val natural = state.isNatural && state.useCutout
+    val aspect = state.canvasAspect
+    val fillsBackground = !natural && (state.useCutout || aspect != null)
     val photo = remember(state.backgroundPhoto) { state.backgroundPhoto?.asImageBitmap() }
 
     Box(
         Modifier
             .fillMaxWidth()
-            .then(if (state.squareCanvas) Modifier.aspectRatio(1f) else Modifier.aspectRatio(bmp.width / bmp.height.toFloat()))
+            .aspectRatio(if (natural || aspect == null) bmp.width / bmp.height.toFloat() else aspect)
             .clip(RoundedCornerShape(12.dp))
             .then(if (fillsBackground) Modifier.backgroundStyle(state.background, photo) else Modifier)
             .pinchToZoom(zoom),
@@ -463,7 +465,7 @@ private fun Preview(state: EditorState) {
             modifier = Modifier
                 .fillMaxSize()
                 .zoomTransform(zoom)
-                .padding(if (state.squareCanvas) 20.dp else 0.dp),
+                .padding(if (!natural && aspect != null) 20.dp else 0.dp),
         )
         if (zoom.isZoomed) {
             FilledTonalIconButton(
@@ -482,7 +484,7 @@ private fun Preview(state: EditorState) {
 }
 
 @Composable
-private fun BackgroundControls(state: EditorState, vm: EditorViewModel, onChoosePhoto: () -> Unit) {
+private fun BackgroundControls(state: EditorState, vm: EditorViewModel, premium: Boolean, onChoosePhoto: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
@@ -494,15 +496,18 @@ private fun BackgroundControls(state: EditorState, vm: EditorViewModel, onChoose
             )
             FilterChip(selected = !state.useCutout, onClick = vm::showOriginal, label = { Text("Original") })
         }
-        if (state.useCutout) {
+        if (state.useCutout && !state.isNatural) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Shadow under product", Modifier.weight(1f))
                 Switch(checked = state.shadow, onCheckedChange = vm::setShadow)
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Square for marketplaces", Modifier.weight(1f))
-            Switch(checked = state.squareCanvas, onCheckedChange = vm::setSquare)
+        MarketplacePicker(state.marketplace, enabled = !state.isRemovingBackground, premium = premium, onSelect = vm::setMarketplace)
+        if (state.marketplace == null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Square", Modifier.weight(1f))
+                Switch(checked = state.squareCanvas, onCheckedChange = vm::setSquare)
+            }
         }
         Text("Background", style = MaterialTheme.typography.titleMedium)
         BackgroundPicker(
@@ -514,7 +519,7 @@ private fun BackgroundControls(state: EditorState, vm: EditorViewModel, onChoose
             enabled = !state.isRemovingBackground,
             busy = state.isPreparingBackground,
         )
-        if (!state.useCutout && !state.squareCanvas) {
+        if (!state.useCutout && state.canvasAspect == null) {
             Text(
                 "Turn on Remove background or Square to see the background.",
                 style = MaterialTheme.typography.bodySmall,

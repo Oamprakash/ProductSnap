@@ -2,6 +2,7 @@ package com.oamsapps.productsnap.image
 
 import android.graphics.Bitmap
 import android.graphics.Rect
+import com.oamsapps.imaging.Framing
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -54,6 +55,24 @@ object Cropper {
         val left = (cx - rw / 2f).roundToInt().coerceIn(0, w - rw)
         val top = (cy - rh / 2f).roundToInt().coerceIn(0, h - rh)
         return Rect(left, top, left + rw, top + rh)
+    }
+
+    /**
+     * Natural background: the photo cropped to [aspect] around the product in [cutout] (same size as [photo]),
+     * or the photo itself without a shape or a product. Returns [photo] itself when nothing is cut.
+     */
+    fun natural(photo: Bitmap, cutout: Bitmap?, aspect: Float?): Bitmap {
+        if (aspect == null) return photo
+        var cx = photo.width / 2f
+        var cy = photo.height / 2f
+        if (cutout != null) {
+            subjectBounds(cutout)?.let { b ->
+                cx = b.exactCenterX() * photo.width / cutout.width
+                cy = b.exactCenterY() * photo.height / cutout.height
+            }
+        }
+        val r = Framing.cropAround(photo.width, photo.height, aspect, cx, cy)
+        return crop(photo, Rect(r[0], r[1], r[2], r[3]))
     }
 
     /** Returns [bmp] itself when [r] covers it completely. */

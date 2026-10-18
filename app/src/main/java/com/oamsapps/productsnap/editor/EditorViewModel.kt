@@ -11,6 +11,7 @@ import com.oamsapps.imaging.CutoutBrush
 import com.oamsapps.imaging.LightFix
 import com.oamsapps.imaging.PhotoCheck
 import com.oamsapps.imaging.PhotoWarning
+import com.oamsapps.productsnap.batch.BatchSettings
 import com.oamsapps.productsnap.billing.PremiumManager
 import com.oamsapps.productsnap.billing.FreeAllowance
 import com.oamsapps.productsnap.image.Adjustments
@@ -21,6 +22,7 @@ import com.oamsapps.productsnap.image.ExportSettings
 import com.oamsapps.productsnap.image.ImageRenderer
 import com.oamsapps.productsnap.image.ImageSaver
 import com.oamsapps.productsnap.image.LightStrength
+import com.oamsapps.productsnap.image.Marketplace
 import com.oamsapps.productsnap.image.ShadowMaker
 import com.oamsapps.productsnap.image.background.BackgroundPhotos
 import com.oamsapps.productsnap.image.background.BackgroundPresets
@@ -61,6 +63,10 @@ data class EditorState(
     /** Measured lighting fix for this photo's product, from background removal. */
     val light: LightFix = LightFix.NONE,
     val squareCanvas: Boolean = true,
+    /** Shape and size for a marketplace; overrides [squareCanvas]. Carried across photos. */
+    val marketplace: Marketplace? = null,
+    /** Natural background: the photo cropped to the canvas shape around the product. */
+    val naturalDisplay: Bitmap? = null,
     val isLoading: Boolean = false,
     val isRemovingBackground: Boolean = false,
     val isSaving: Boolean = false,
@@ -95,10 +101,14 @@ data class EditorState(
     val displayBitmap: Bitmap?
         get() = when {
             !useCutout -> original
+            isNatural -> naturalDisplay ?: original
             shadow -> cutoutWithShadow ?: cutout
             else -> cutout
         }
     val hasImage get() = original != null
+    val isNatural get() = background == BackgroundStyle.Natural
+    /** The shape the result is framed to: a marketplace's, square, or the photo's own (null). */
+    val canvasAspect: Float? get() = marketplace?.aspect ?: if (squareCanvas) 1f else null
     /** Auto light only applies around a cutout: it's measured on the product, and the sliders build on it. */
     val lightApplies get() = lightStrength != LightStrength.OFF && useCutout && light != LightFix.NONE
     /** What preview and export apply: the light fix (when on), then the sliders. */
@@ -132,11 +142,52 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { if (it.cutout === cut) it.copy(cutoutWithShadow = shadowed) else it }
             }
         }
+        // Natural background: keep the framed photo in step with the photo, cutout and shape.
+        viewModelScope.launch {
+            _state.map { s -> if (s.isNatural && s.useCutout) Triple(s.original, s.cutout, s.canvasAspect) else null }
+                .distinctUntilChanged()
+                .collectLatest { key ->
+                    if (key == null) { _state.update { it.copy(naturalDisplay = null) }; return@collectLatest }
+                    val (photo, cut, aspect) = key
+                    if (photo == null) return@collectLatest
+                    val framed = runCatching { withContext(Dispatchers.Default) { Cropper.natural(photo, cut, aspect) } }.getOrNull()
+                    _state.update { it.copy(naturalDisplay = framed) }
+                }
+        }
     }
 
-    fun loadImage(uri: Uri) = viewModelScope.launch {
+    fun loadImage(uri: Uri) = viewModelScope.launch { load(uri) }
+
+    /**
+     * Opens a batch photo with the batch's look (marketplace, background, shape, light, sliders, shadow), so the
+     * editor shows what batch saved rather than whatever the editor last used. Removes the background again when
+     * batch did.
+     */
+    fun loadImage(uri: Uri, look: BatchSettings) = viewModelScope.launch {
+        _state.update {
+            it.copy(
+                background = look.background,
+                backgroundPhoto = null,
+                squareCanvas = look.squareCanvas,
+                marketplace = look.marketplace,
+                adjustments = look.adjustments,
+                lightStrength = look.lightStrength,
+                shadow = look.shadow,
+            )
+        }
+        (look.background as? BackgroundStyle.Photo)?.let { style ->
+            launch {
+                val bmp = runCatching { BackgroundPhotos.prepare(style, BACKGROUND_MAX_EDGE) }.getOrNull()
+                _state.update { if (it.background == style) it.copy(backgroundPhoto = bmp) else it }
+            }
+        }
+        if (load(uri) && (look.removeBackground || look.background == BackgroundStyle.Natural)) removeBackground()
+    }
+
+    /** Loads the photo keeping the current look; false if it couldn't be opened. */
+    private suspend fun load(uri: Uri): Boolean {
         _state.update { it.copy(isLoading = true, message = null) }
-        runCatching { BitmapLoader.load(getApplication(), uri) }
+        return runCatching { BitmapLoader.load(getApplication(), uri) }
             .onSuccess { bmp ->
                 val dark = runCatching { withContext(Dispatchers.Default) { PhotoCheck.isTooDark(bmp) } }.getOrDefault(false)
                 // Keep the user's look (background, canvas, adjustments, brush) across photos.
@@ -146,6 +197,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                         background = s.background,
                         backgroundPhoto = s.backgroundPhoto,
                         squareCanvas = s.squareCanvas,
+                        marketplace = s.marketplace,
                         adjustments = s.adjustments,
                         lightStrength = s.lightStrength,
                         brushSizeDp = s.brushSizeDp,
@@ -155,6 +207,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             .onFailure { _state.update { s -> s.copy(isLoading = false, message = "Couldn't open that photo. Try a different one.") } }
+            .isSuccess
     }
 
     fun removeBackground() {
@@ -235,6 +288,16 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setSquare(on: Boolean) = _state.update { it.copy(squareCanvas = on) }
+
+    /** A marketplace sets the shape; Vinted also keeps the real background, the others a clean one. */
+    fun setMarketplace(m: Marketplace?) {
+        _state.update { it.copy(marketplace = m) }
+        val bg = _state.value.background
+        when {
+            m?.natural == true && bg != BackgroundStyle.Natural -> setBackground(BackgroundStyle.Natural)
+            m != null && !m.natural && (bg == BackgroundStyle.Natural || bg.isTransparent) -> setBackground(BackgroundPresets.WHITE)
+        }
+    }
     fun setBrightness(v: Float) = _state.update { it.copy(adjustments = it.adjustments.copy(brightness = v)) }
     fun setContrast(v: Float) = _state.update { it.copy(adjustments = it.adjustments.copy(contrast = v)) }
     fun resetAdjustments() = _state.update { it.copy(adjustments = Adjustments()) }
@@ -534,6 +597,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             removeBackground = s.useCutout,
             background = s.background,
             squareCanvas = s.squareCanvas,
+            marketplace = s.marketplace,
             adjustments = s.effectiveAdjustments,
             premium = isPremium.value,
         )
@@ -543,7 +607,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             runCatching {
                 val out = ImageRenderer.render(settings.renderSpec(content, s.backgroundPhoto))
                 try {
-                    ImageSaver.saveToGallery(getApplication(), out, transparent = settings.transparent)
+                    ImageSaver.saveToGallery(getApplication(), out, transparent = settings.transparent, quality = settings.jpegQuality)
                 } finally {
                     out.recycle()
                 }

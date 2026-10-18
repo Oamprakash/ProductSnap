@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
                         onOpenPaywall = openPaywall,
                         onOpenInEditor = { file ->
                             showBatch.value = false
-                            editorVm.loadImage(Uri.fromFile(file))
+                            editorVm.loadImage(Uri.fromFile(file), batchVm.state.value.settings)
                         },
                     )
                 } else {
