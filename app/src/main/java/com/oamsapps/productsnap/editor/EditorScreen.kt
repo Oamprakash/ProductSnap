@@ -667,9 +667,7 @@ private fun AdjustmentControls(state: EditorState, vm: EditorViewModel) {
             Text("Adjust", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             TextButton(onClick = vm::resetAdjustments, enabled = !state.adjustments.slidersNeutral) { Text("Reset") }
         }
-        if (state.useCutout) {
-            LightStrengthPicker(state.lightStrength, enabled = true, onSelect = vm::setLightStrength)
-        }
+        LightStrengthPicker(state.lightStrength, enabled = true, onSelect = vm::setLightStrength)
         LabeledSlider("Brightness", state.adjustments.brightness, vm::setBrightness)
         LabeledSlider("Contrast", state.adjustments.contrast, vm::setContrast)
     }

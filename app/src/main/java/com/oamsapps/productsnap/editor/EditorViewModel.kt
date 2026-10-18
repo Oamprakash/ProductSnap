@@ -22,6 +22,7 @@ import com.oamsapps.productsnap.image.Cropper
 import com.oamsapps.productsnap.image.ExportSettings
 import com.oamsapps.productsnap.image.ImageRenderer
 import com.oamsapps.productsnap.image.ImageSaver
+import com.oamsapps.productsnap.image.Removal
 import com.oamsapps.productsnap.image.RenderSpec
 import com.oamsapps.productsnap.image.RingMark
 import com.oamsapps.productsnap.image.LightStrength
@@ -35,7 +36,9 @@ import com.oamsapps.productsnap.image.erase.MagicEraser
 import com.oamsapps.productsnap.telemetry.Telemetry
 import com.oamsapps.productsnap.telemetry.kind
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,6 +75,8 @@ data class EditorState(
     val lightStrength: LightStrength = LightStrength.DEFAULT,
     /** Measured lighting fix for this photo's product, from background removal. */
     val light: LightFix = LightFix.NONE,
+    /** The (prepared) cutout runs along the photo's edge; warned about when it's shown. */
+    val cutoutRunsOffEdge: Boolean = false,
     val squareCanvas: Boolean = true,
     /** Shape and size for a marketplace; overrides [squareCanvas]. Carried across photos. */
     val marketplace: Marketplace? = null,
@@ -131,8 +136,11 @@ data class EditorState(
     val isNatural get() = background == BackgroundStyle.Natural
     /** The shape the result is framed to: a marketplace's, square, or the photo's own (null). */
     val canvasAspect: Float? get() = marketplace?.aspect ?: if (squareCanvas) 1f else null
-    /** Auto light only applies around a cutout: it's measured on the product, and the sliders build on it. */
-    val lightApplies get() = lightStrength != LightStrength.OFF && useCutout && light != LightFix.NONE
+    /**
+     * Auto light is measured on the product (the cutout is prepared in the background as soon as a photo opens)
+     * and applies to whatever is shown: the cutout, the Natural crop, or the original photo.
+     */
+    val lightApplies get() = lightStrength != LightStrength.OFF && light != LightFix.NONE
     /** What preview and export apply: the light fix (when on), then the sliders. */
     val effectiveAdjustments get() = if (lightApplies) adjustments.copy(light = lightStrength.apply(light)) else adjustments
     val canUndo get() = history.isNotEmpty()
@@ -253,19 +261,56 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                         circleFlaws = s.marketplace != Marketplace.EBAY,
                     )
                 }
+                prepare(bmp)
             }
             .onFailure { _state.update { s -> s.copy(isLoading = false, message = "Couldn't open that photo. Try a different one.") } }
             .isSuccess
     }
 
+    private var analysis: Deferred<Removal?>? = null
+    private var analysisFor: Bitmap? = null
+
+    /** One cutout-and-light run per photo, shared by the background preparation and Remove background. */
+    private fun analyze(photo: Bitmap): Deferred<Removal?> {
+        val running = analysis
+        if (running != null && analysisFor === photo) return running
+        analysisFor = photo
+        return viewModelScope.async { runCatching { remover.remove(photo) }.getOrNull() }.also { analysis = it }
+    }
+
+    /**
+     * Runs ML Kit as soon as a photo opens, so Auto light applies straight away and Remove background is instant.
+     * The cutout isn't shown until asked for; a failed run is retried by Remove background.
+     */
+    private fun prepare(photo: Bitmap) = viewModelScope.launch {
+        val r = analyze(photo).await() ?: return@launch
+        if (r.cutout == null) return@launch
+        _state.update {
+            if (it.original !== photo || it.cutout != null) it
+            else it.copy(cutout = r.cutout, light = r.light, cutoutRunsOffEdge = r.runsOffEdge)
+        }
+    }
+
     fun removeBackground() {
         val s = _state.value
         val original = s.original ?: return
-        if (s.cutout != null) { _state.update { it.copy(useCutout = true) }; return }
+        if (s.cutout != null) {
+            _state.update {
+                it.copy(useCutout = true, warning = if (it.cutoutRunsOffEdge && it.warning == null) PhotoWarning.RUNS_OFF_EDGE else it.warning)
+            }
+            return
+        }
 
         viewModelScope.launch {
             _state.update { it.copy(isRemovingBackground = true, message = null) }
-            runCatching { remover.remove(original) }
+            val first = analyze(original).await()
+            val result = first ?: run {
+                // The prepared run failed (e.g. the model was still downloading): try once more now.
+                analysis = null
+                analysisFor = null
+                analyze(original).await()
+            }
+            runCatching { result ?: error("Background removal unavailable") }
                 .onSuccess { removal ->
                     val cut = removal.cutout
                     Telemetry.event("cutout", "source" to "editor", "verdict" to removal.verdict.name, "runs_off_edge" to removal.runsOffEdge)
@@ -281,6 +326,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                         else it.copy(
                             cutout = cut,
                             light = removal.light,
+                            cutoutRunsOffEdge = removal.runsOffEdge,
                             useCutout = true,
                             isRemovingBackground = false,
                             warning = if (removal.runsOffEdge) PhotoWarning.RUNS_OFF_EDGE else it.warning,

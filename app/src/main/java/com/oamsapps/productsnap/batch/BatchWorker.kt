@@ -261,6 +261,17 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                 if (framed !== photo) cropped = framed
                 return render(p.item, framed, settings, light, backgroundPhoto, clock)
             }
+            if (settings.keepsPhoto && p.segmented != null) {
+                // Background kept: ML Kit ran only to measure the product's light; the photo itself is the content.
+                val removal = clock.time(RunClock.CUTOUT) { remover.finish(p.segmented, keepPhoto = true) }
+                photo = removal.photo
+                cutout = removal.cutout
+                light = if (removal.cutout != null) removal.light else LightFix.NONE
+                val whole = photo ?: return Outcome(StoredStatus.FAILED, "Photo couldn't be read")
+                val framed = clock.time(RunClock.CROP_SHADOW) { Cropper.applyBatchCrop(whole, settings.crop, subjectAware = false) }
+                if (framed !== whole) cropped = framed
+                return render(p.item, framed, settings, light, backgroundPhoto, clock)
+            }
             val uncropped = if (p.segmented != null) {
                 val removal = clock.time(RunClock.CUTOUT) { remover.finish(p.segmented) }
                 when {

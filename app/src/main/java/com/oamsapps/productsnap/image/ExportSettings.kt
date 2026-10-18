@@ -22,8 +22,11 @@ data class ExportSettings(
     /** The real background, lit and framed around the product (see [BackgroundStyle.Natural]). */
     val isNatural get() = background == BackgroundStyle.Natural
 
-    /** ML Kit runs for a cutout, and for Natural too (to frame the product and measure its light). */
-    val needsSegmentation get() = removeBackground || isNatural
+    /** ML Kit runs for a cutout, for Natural (to frame the product), and for Auto light (to measure it). */
+    val needsSegmentation get() = removeBackground || isNatural || lightStrength != LightStrength.OFF
+
+    /** Keep the photo as it is (no cutout, no Natural framing); ML Kit may still run to measure the light. */
+    val keepsPhoto get() = !removeBackground && !isNatural
 
     private val fillsBackground get() = !isNatural && (removeBackground || squareCanvas || marketplace != null)
 
