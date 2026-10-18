@@ -19,6 +19,14 @@ class StepTimings(
     val totalMs get() = segmentMs + cleanMs + compositeMs + lightMs
 }
 
+/** How the item's outline is finished. */
+enum class EdgeMode {
+    /** Erode + feather ([MaskOps.cleanEdges]). The tested default. */
+    FEATHER,
+    /** Guided-filter matting + halo removal ([Matting]): keeps fuzz and lace, no background fringe. */
+    MATTE,
+}
+
 /** Result for one photo. On anything but [MaskVerdict.OK], [cutout] is null and the UI offers retry or the brush. */
 class ProcessedPhoto(
     val verdict: MaskVerdict,
@@ -41,6 +49,8 @@ class ListingPhotoPipeline(
     private val segmentLongEdge: Int = PipelineDefaults.SEGMENT_LONG_EDGE,
     /** Honest auto-brighten on the cutout. Off when the caller has its own lighting controls. */
     private val autoLight: Boolean = true,
+    /** Edge finishing. Switch to [EdgeMode.MATTE] to A/B it on device photos before making it the default. */
+    private val edges: EdgeMode = EdgeMode.FEATHER,
 ) {
 
     /**
@@ -70,10 +80,25 @@ class ListingPhotoPipeline(
         val full = s.full
         val small = s.small
         val t0 = SystemClock.elapsedRealtime()
-        val r = MaskOps.edgeRadius(max(small.width, small.height), max(full.width, full.height))
-        val clean = MaskOps.cleanEdges(seg.mask, erodePx = r, featherPx = r)
+        var smallPx: IntArray? = null
+        val clean = when (edges) {
+            EdgeMode.FEATHER -> {
+                val r = MaskOps.edgeRadius(max(small.width, small.height), max(full.width, full.height))
+                MaskOps.cleanEdges(seg.mask, erodePx = r, featherPx = r)
+            }
+            EdgeMode.MATTE -> {
+                val px = IntArray(small.width * small.height)
+                small.getPixels(px, 0, small.width, 0, 0, small.width, small.height)
+                smallPx = px
+                Matting.refine(seg.mask, px, Matting.params(max(small.width, small.height)))
+            }
+        }
         val t1 = SystemClock.elapsedRealtime()
-        val cut = Compositor.cutout(full, clean)
+        var cut = Compositor.cutout(full, clean)
+        if (smallPx != null) {
+            val colors = Matting.edgeColors(clean, smallPx, Matting.params(max(small.width, small.height)).colorRadius)
+            cut = Compositor.Cutout(Compositor.decontaminate(cut.bitmap, colors), cut.path)
+        }
         val t2 = SystemClock.elapsedRealtime()
         val light = if (autoLight) AutoLight.analyze(small, clean) else LightFix.NONE
         val lit = if (autoLight) AutoLight.apply(cut.bitmap, light).also { cut.bitmap.recycle() } else cut.bitmap

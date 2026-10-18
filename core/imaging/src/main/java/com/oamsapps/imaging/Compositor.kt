@@ -40,6 +40,17 @@ object Compositor {
         return Cutout(kotlinCutout(full, big), Path.KOTLIN).also { big.recycle() }
     }
 
+    /** Halo removal on a cutout (see [Matting.decontaminate]). Returns a new bitmap and recycles [cutout]. */
+    fun decontaminate(cutout: Bitmap, colors: Matting.EdgeColors): Bitmap {
+        val w = cutout.width
+        val h = cutout.height
+        val px = IntArray(w * h)
+        cutout.getPixels(px, 0, w, 0, 0, w, h)
+        if (Matting.decontaminate(px, w, h, colors) == 0) return cutout
+        // The KOTLIN path's cutout is immutable, so build a new bitmap rather than setPixels on it.
+        return Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888).also { cutout.recycle() }
+    }
+
     /** The cutout on a flat colour (white, light grey…). */
     fun onColor(cutout: Bitmap, color: Int): Bitmap {
         val out = Bitmap.createBitmap(cutout.width, cutout.height, Bitmap.Config.ARGB_8888)
