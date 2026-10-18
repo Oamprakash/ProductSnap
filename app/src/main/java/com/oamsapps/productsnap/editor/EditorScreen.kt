@@ -76,7 +76,7 @@ private val CropPresets = listOf(
 )
 
 /** The editor's panels. Flaws and Crop open their tools straight away. */
-private enum class Tab(val label: String, val icon: ImageVector) {
+private enum class EditorTab(val label: String, val icon: ImageVector) {
     Cutout("Cutout", Icons.Default.AutoFixHigh),
     Background("Background", Icons.Default.Wallpaper),
     Light("Light", Icons.Default.WbSunny),
@@ -107,7 +107,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onOpenBatch: () -> Uni
 
     var showTips by remember { mutableStateOf(false) }
     if (showTips) PhotoTipsDialog(onDismiss = { showTips = false })
-    var tab by rememberSaveable { mutableStateOf(Tab.Cutout) }
+    var tab by rememberSaveable { mutableStateOf(EditorTab.Cutout) }
 
     LaunchedEffect(state.shareUris) {
         val uris = state.shareUris ?: return@LaunchedEffect
@@ -239,24 +239,24 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onOpenBatch: () -> Uni
                             }
                             else -> {
                                 state.warning?.let { WarningCard(it, onFix = vm::startRefine, onIgnore = vm::dismissWarning) }
-                                TabRow(
+                                EditorTabs(
                                     selected = tab,
                                     flawCount = state.flaws.size,
                                     enabled = !state.isRemovingBackground,
                                     onSelect = { t ->
                                         when (t) {
-                                            Tab.Flaws -> vm.startFlaws()
-                                            Tab.Crop -> vm.startCrop()
+                                            EditorTab.Flaws -> vm.startFlaws()
+                                            EditorTab.Crop -> vm.startCrop()
                                             else -> tab = t
                                         }
                                     },
                                 )
                                 ToolPanel {
                                     when (tab) {
-                                        Tab.Cutout -> CutoutPanel(state, vm)
-                                        Tab.Background -> BackgroundPanel(state, vm, premium, onChoosePhoto = pickBackground)
-                                        Tab.Light -> LightPanel(state, vm)
-                                        Tab.Flaws, Tab.Crop -> Unit
+                                        EditorTab.Cutout -> CutoutPanel(state, vm)
+                                        EditorTab.Background -> BackgroundPanel(state, vm, premium, onChoosePhoto = pickBackground)
+                                        EditorTab.Light -> LightPanel(state, vm)
+                                        EditorTab.Flaws, EditorTab.Crop -> Unit
                                     }
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -340,12 +340,12 @@ private fun ToolPanel(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun TabRow(selected: Tab, flawCount: Int, enabled: Boolean, onSelect: (Tab) -> Unit) {
+private fun EditorTabs(selected: EditorTab, flawCount: Int, enabled: Boolean, onSelect: (EditorTab) -> Unit) {
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Tab.entries.forEach { t ->
+        EditorTab.entries.forEach { t ->
             val on = t == selected
             Surface(
                 shape = RoundedCornerShape(14.dp),
@@ -359,7 +359,7 @@ private fun TabRow(selected: Tab, flawCount: Int, enabled: Boolean, onSelect: (T
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(t.icon, null, Modifier.size(18.dp))
                     Text(
-                        if (t == Tab.Flaws && flawCount > 0) "Flaws ($flawCount)" else t.label,
+                        if (t == EditorTab.Flaws && flawCount > 0) "Flaws ($flawCount)" else t.label,
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
