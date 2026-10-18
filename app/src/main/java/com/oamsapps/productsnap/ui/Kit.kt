@@ -2,6 +2,7 @@ package com.oamsapps.productsnap.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -13,8 +14,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -107,30 +106,38 @@ private fun RowScope.ButtonContent(text: String, icon: ImageVector?) {
 /** Square icon button on the dark stage. */
 @Composable
 fun StageIconButton(icon: ImageVector, description: String, onClick: () -> Unit, enabled: Boolean = true) {
-    IconButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.size(44.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = IconButtonDefaults.iconButtonColors(
-            containerColor = Studio.StageRaised,
-            contentColor = Studio.StageText,
-            disabledContainerColor = Studio.StageRaised,
-            disabledContentColor = Studio.StageMuted.copy(alpha = 0.5f),
-        ),
-    ) { Icon(icon, description, Modifier.size(20.dp)) }
+    SquareIconButton(
+        icon, description, onClick, enabled,
+        container = Studio.StageRaised,
+        content = if (enabled) Studio.StageText else Studio.StageMuted.copy(alpha = 0.5f),
+    )
 }
 
 /** Square icon button on paper. */
 @Composable
 fun PaperIconButton(icon: ImageVector, description: String, onClick: () -> Unit, enabled: Boolean = true) {
-    IconButton(
+    SquareIconButton(icon, description, onClick, enabled, container = Studio.Card, content = if (enabled) Studio.Ink else Studio.Muted)
+}
+
+@Composable
+private fun SquareIconButton(
+    icon: ImageVector,
+    description: String,
+    onClick: () -> Unit,
+    enabled: Boolean,
+    container: Color,
+    content: Color,
+) {
+    Surface(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.size(44.dp),
         shape = RoundedCornerShape(14.dp),
-        colors = IconButtonDefaults.iconButtonColors(containerColor = Studio.Card, contentColor = Studio.Ink),
-    ) { Icon(icon, description, Modifier.size(20.dp)) }
+        color = container,
+        contentColor = content,
+        modifier = Modifier.size(44.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) { Icon(icon, description, Modifier.size(20.dp)) }
+    }
 }
 
 /** Small status pill on the stage. */
