@@ -20,6 +20,13 @@ val buildId: String = System.getenv("GITHUB_SHA")?.take(7)
     }.getOrNull()?.takeIf { it.isNotEmpty() }
     ?: "local"
 
+// Release signing with the Play upload key, which never lives in this repo. Locally the four values come from
+// ~/.gradle/gradle.properties; in CI from secrets (the keystore arrives base64-encoded and is decoded to a temp
+// file). Without them the release build is left unsigned, and debug builds are unaffected.
+fun signingValue(name: String): String? =
+    (providers.gradleProperty(name).orNull ?: System.getenv(name))?.takeIf { it.isNotBlank() }
+val uploadKeystore = signingValue("PRODUCTSNAP_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
+
 android {
     namespace = "com.oamsapps.productsnap"
     compileSdk = 35
@@ -28,13 +35,26 @@ android {
         applicationId = "com.oamsapps.productsnap"
         minSdk = 29 // MediaStore scoped storage + ImageDecoder without legacy paths
         targetSdk = 35
-        versionCode = 1
+        // Play needs a higher number for every upload: CI's run number, or 1 for local builds.
+        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionName = "0.1.0-$buildId"
         buildConfigField("String", "BUILD_ID", "\"$buildId\"")
     }
 
+    signingConfigs {
+        if (uploadKeystore != null) {
+            create("upload") {
+                storeFile = uploadKeystore
+                storePassword = signingValue("PRODUCTSNAP_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("PRODUCTSNAP_KEY_ALIAS")
+                keyPassword = signingValue("PRODUCTSNAP_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfigs.findByName("upload")?.let { signingConfig = it }
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
         }
