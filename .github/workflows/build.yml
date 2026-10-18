@@ -94,8 +94,33 @@ jobs:
             exit 0
           fi
           export PRODUCTSNAP_KEYSTORE="$RUNNER_TEMP/upload.jks"
-          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$PRODUCTSNAP_KEYSTORE"
-          gradle :app:bundleRelease --stacktrace
+          # Tolerate line breaks or Windows line endings pasted into the secret.
+          if ! printf '%s' "$KEYSTORE_BASE64" | tr -d ' \r\n' | base64 -d > "$PRODUCTSNAP_KEYSTORE" 2>/dev/null; then
+            echo "::error title=Signing key::PRODUCTSNAP_KEYSTORE_BASE64 isn't valid base64. Re-copy the whole output of the PowerShell command."
+            exit 1
+          fi
+          echo "::notice title=Signing key::Keystore decoded, $(wc -c < "$PRODUCTSNAP_KEYSTORE") bytes"
+          # Check passwords and alias with keytool first, so a mistake names itself (secret values never printed).
+          for v in PRODUCTSNAP_KEYSTORE_PASSWORD PRODUCTSNAP_KEY_ALIAS PRODUCTSNAP_KEY_PASSWORD; do
+            if [ -z "${!v}" ]; then echo "::error title=Signing key::Secret $v is empty or missing."; exit 1; fi
+          done
+          if ! keytool -list -keystore "$PRODUCTSNAP_KEYSTORE" -storepass "$PRODUCTSNAP_KEYSTORE_PASSWORD" > "$RUNNER_TEMP/ks.txt" 2>&1; then
+            echo "::error title=Signing key::keytool can't open the keystore: $(grep -m1 -i 'error\|exception' "$RUNNER_TEMP/ks.txt" | sed 's/^.*: //'). Most likely PRODUCTSNAP_KEYSTORE_PASSWORD is wrong."
+            exit 1
+          fi
+          aliases=$(grep -i 'PrivateKeyEntry' "$RUNNER_TEMP/ks.txt" | cut -d, -f1 | tr '\n' ' ')
+          if ! keytool -list -keystore "$PRODUCTSNAP_KEYSTORE" -storepass "$PRODUCTSNAP_KEYSTORE_PASSWORD" -alias "$PRODUCTSNAP_KEY_ALIAS" > /dev/null 2>&1; then
+            echo "::error title=Signing key::No key named by PRODUCTSNAP_KEY_ALIAS in the keystore. Keys it has: $aliases"
+            exit 1
+          fi
+          echo "::notice title=Signing key::Keystore password and alias OK"
+          if ! gradle :app:bundleRelease --stacktrace > "$RUNNER_TEMP/bundle.log" 2>&1; then
+            reason=$(grep -m3 -iE 'Cannot recover key|password|keystore|alias|What went wrong' -A2 "$RUNNER_TEMP/bundle.log" | grep -v '^--$' | tr '\n' ' ' | cut -c1-400)
+            echo "::error title=Release bundle::$reason"
+            tail -n 60 "$RUNNER_TEMP/bundle.log"
+            rm -f "$PRODUCTSNAP_KEYSTORE"
+            exit 1
+          fi
           rm -f "$PRODUCTSNAP_KEYSTORE"
           cp app/build/outputs/bundle/release/app-release.aab "productsnap-${GITHUB_SHA::7}-release.aab"
           echo "aab=productsnap-${GITHUB_SHA::7}-release.aab" >> "$GITHUB_OUTPUT"
