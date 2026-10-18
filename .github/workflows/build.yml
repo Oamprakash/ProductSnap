@@ -74,6 +74,42 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
 
       # Each branch gets its own pre-release with an installable APK.
+      # The release build shrinks code with R8, which can break on libraries (ML Kit, Firebase, Billing): check it
+      # compiles on every push, unsigned, before it matters.
+      - name: Release build compiles (R8)
+        run: gradle :app:bundleRelease --stacktrace
+
+      # Signed bundle for Play, built on main only when the upload key secrets are set.
+      - name: Build signed release bundle
+        id: bundle
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.PRODUCTSNAP_KEYSTORE_BASE64 }}
+          PRODUCTSNAP_KEYSTORE_PASSWORD: ${{ secrets.PRODUCTSNAP_KEYSTORE_PASSWORD }}
+          PRODUCTSNAP_KEY_ALIAS: ${{ secrets.PRODUCTSNAP_KEY_ALIAS }}
+          PRODUCTSNAP_KEY_PASSWORD: ${{ secrets.PRODUCTSNAP_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "No upload key secrets: skipping the release bundle"
+            exit 0
+          fi
+          export PRODUCTSNAP_KEYSTORE="$RUNNER_TEMP/upload.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$PRODUCTSNAP_KEYSTORE"
+          gradle :app:bundleRelease --stacktrace
+          rm -f "$PRODUCTSNAP_KEYSTORE"
+          cp app/build/outputs/bundle/release/app-release.aab "productsnap-${GITHUB_SHA::7}-release.aab"
+          echo "aab=productsnap-${GITHUB_SHA::7}-release.aab" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release bundle
+        if: steps.bundle.outputs.aab != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete play-upload --yes --cleanup-tag || true
+          gh release create play-upload "${{ steps.bundle.outputs.aab }}" --target "$GITHUB_SHA" --prerelease \
+            --title "Play upload: ${GITHUB_SHA::7} (version code ${GITHUB_RUN_NUMBER})" \
+            --notes "Signed with the upload key. Upload this .aab to Play Console > Internal testing."
+
       - name: Publish branch build
         if: github.event_name == 'push'
         env:
