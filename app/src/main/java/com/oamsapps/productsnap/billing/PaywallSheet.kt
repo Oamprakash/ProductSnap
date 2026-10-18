@@ -147,7 +147,18 @@ fun PaywallSheet(onDismiss: () -> Unit) {
 
             if (BuildConfig.DEBUG) {
                 TextButton(onClick = PremiumManager::debugUnlock) { Text("Unlock Premium (debug builds only)") }
-                // Checks that Crashlytics is wired up: the report appears in the Firebase console after relaunch.
+                // Crash reporting status and checks, so setup can be verified without adb.
+                var testSent by remember { mutableStateOf<String?>(null) }
+                Text(
+                    "Crash reports: ${Telemetry.status}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = {
+                    testSent = if (Telemetry.sendTestReport()) "Sent. Look under Non-fatals in Crashlytics in a few minutes." else "Reporting is off in this build."
+                }) { Text("Send a test report, no crash (debug builds only)") }
+                testSent?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                // Checks that Crashlytics catches real crashes: the report appears in the Firebase console after relaunch.
                 TextButton(onClick = { throw RuntimeException("Test crash from build ${BuildConfig.BUILD_ID}") }) {
                     Text("Send a test crash (debug builds only)")
                 }

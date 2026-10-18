@@ -20,9 +20,15 @@ object Telemetry {
     private var analytics: FirebaseAnalytics? = null
     private var crashlytics: FirebaseCrashlytics? = null
 
+    /** One line for the debug screen: is reporting on, and to which Firebase project. */
+    var status: String = "Not started"
+        private set
+
     fun init(app: Application) {
-        if (FirebaseApp.getApps(app).isEmpty()) {
-            Log.i(TAG, "No Firebase config in this build; telemetry off")
+        val apps = FirebaseApp.getApps(app)
+        if (apps.isEmpty()) {
+            status = "Off: this build has no Firebase config"
+            Log.i(TAG, status)
             return
         }
         runCatching {
@@ -31,7 +37,26 @@ object Telemetry {
                 setCustomKey("build", BuildConfig.BUILD_ID)
                 setCustomKey("debug", BuildConfig.DEBUG)
             }
-        }.onFailure { Log.w(TAG, "Firebase didn't start; telemetry off", it) }
+            val o = apps.first().options
+            status = "On: project ${o.projectId ?: "?"}, app ${o.applicationId}, collection " +
+                (if (crashlytics?.isCrashlyticsCollectionEnabled == true) "enabled" else "disabled")
+            Log.i(TAG, status)
+        }.onFailure {
+            status = "Off: Firebase didn't start (${it.javaClass.simpleName}: ${it.message})"
+            Log.w(TAG, status, it)
+        }
+    }
+
+    /**
+     * Debug check that doesn't crash the app: records a handled error and asks Crashlytics to upload now
+     * (it shows under Non-fatals in the console). Returns false when reporting is off.
+     */
+    fun sendTestReport(): Boolean {
+        val c = crashlytics ?: return false
+        c.log("Test report from build ${BuildConfig.BUILD_ID}")
+        c.recordException(RuntimeException("Test non-fatal from build ${BuildConfig.BUILD_ID}"))
+        c.sendUnsentReports()
+        return true
     }
 
     /** [name] and keys in snake_case, at most 40 characters (Analytics limits). */
