@@ -114,7 +114,8 @@ jobs:
             exit 1
           fi
           echo "::notice title=Signing key::Keystore password and alias OK"
-          if ! gradle :app:bundleRelease --stacktrace > "$RUNNER_TEMP/bundle.log" 2>&1; then
+          # The .aab is for Play; the APK, signed with the same upload key, installs directly to test the release build.
+          if ! gradle :app:bundleRelease :app:assembleRelease --stacktrace > "$RUNNER_TEMP/bundle.log" 2>&1; then
             reason=$(grep -m3 -iE 'Cannot recover key|password|keystore|alias|What went wrong' -A2 "$RUNNER_TEMP/bundle.log" | grep -v '^--$' | tr '\n' ' ' | cut -c1-400)
             echo "::error title=Release bundle::$reason"
             tail -n 60 "$RUNNER_TEMP/bundle.log"
@@ -123,7 +124,9 @@ jobs:
           fi
           rm -f "$PRODUCTSNAP_KEYSTORE"
           cp app/build/outputs/bundle/release/app-release.aab "productsnap-${GITHUB_SHA::7}-release.aab"
+          cp app/build/outputs/apk/release/app-release.apk "productsnap-${GITHUB_SHA::7}-release.apk"
           echo "aab=productsnap-${GITHUB_SHA::7}-release.aab" >> "$GITHUB_OUTPUT"
+          echo "apk=productsnap-${GITHUB_SHA::7}-release.apk" >> "$GITHUB_OUTPUT"
 
       - name: Publish release bundle
         if: steps.bundle.outputs.aab != ''
@@ -131,9 +134,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete play-upload --yes --cleanup-tag || true
-          gh release create play-upload "${{ steps.bundle.outputs.aab }}" --target "$GITHUB_SHA" --prerelease \
+          gh release create play-upload "${{ steps.bundle.outputs.aab }}" "${{ steps.bundle.outputs.apk }}" --target "$GITHUB_SHA" --prerelease \
             --title "Play upload: ${GITHUB_SHA::7} (version code ${GITHUB_RUN_NUMBER})" \
-            --notes "Signed with the upload key. Upload this .aab to Play Console > Internal testing."
+            --notes "Signed with the upload key. Upload the .aab to Play Console > Internal testing. The release .apk installs directly to test the release build (uninstall debug builds first; uninstall it again before installing from Play)."
 
       - name: Publish branch build
         if: github.event_name == 'push'
