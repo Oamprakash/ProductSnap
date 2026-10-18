@@ -167,10 +167,8 @@ private fun SettingsCard(state: BatchState, vm: BatchViewModel, onChoosePhoto: (
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Applied to every photo", style = MaterialTheme.typography.titleMedium)
             SettingSwitch("Remove background", state.removeBackground, enabled, vm::setRemoveBackground)
-            if (state.removeBackground || natural) {
-                if (!natural) SettingSwitch("Shadow under product", state.shadow, enabled, vm::setShadow)
-                LightStrengthPicker(state.lightStrength, enabled, vm::setLightStrength)
-            }
+            if (state.removeBackground && !natural) SettingSwitch("Shadow under product", state.shadow, enabled, vm::setShadow)
+            LightStrengthPicker(state.lightStrength, enabled, vm::setLightStrength)
             MarketplacePicker(state.marketplace, enabled, premium, vm::setMarketplace)
             if (state.marketplace == null) SettingSwitch("Square", state.squareCanvas, enabled, vm::setSquare)
             Text("Background", style = MaterialTheme.typography.bodyLarge)
