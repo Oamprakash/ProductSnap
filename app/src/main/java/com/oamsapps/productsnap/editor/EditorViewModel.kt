@@ -20,6 +20,7 @@ import com.oamsapps.productsnap.image.Cropper
 import com.oamsapps.productsnap.image.ExportSettings
 import com.oamsapps.productsnap.image.ImageRenderer
 import com.oamsapps.productsnap.image.ImageSaver
+import com.oamsapps.productsnap.image.LightStrength
 import com.oamsapps.productsnap.image.ShadowMaker
 import com.oamsapps.productsnap.image.background.BackgroundPhotos
 import com.oamsapps.productsnap.image.background.BackgroundPresets
@@ -55,8 +56,8 @@ data class EditorState(
     val cutoutWithShadow: Bitmap? = null,
     /** Slider values only; the per-photo light fix is kept apart in [light]. */
     val adjustments: Adjustments = Adjustments(),
-    /** Auto light switch; carried across photos. */
-    val autoLight: Boolean = true,
+    /** Auto light level; carried across photos. */
+    val lightStrength: LightStrength = LightStrength.DEFAULT,
     /** Measured lighting fix for this photo's product, from background removal. */
     val light: LightFix = LightFix.NONE,
     val squareCanvas: Boolean = true,
@@ -99,9 +100,9 @@ data class EditorState(
         }
     val hasImage get() = original != null
     /** Auto light only applies around a cutout: it's measured on the product, and the sliders build on it. */
-    val lightApplies get() = autoLight && useCutout && light != LightFix.NONE
+    val lightApplies get() = lightStrength != LightStrength.OFF && useCutout && light != LightFix.NONE
     /** What preview and export apply: the light fix (when on), then the sliders. */
-    val effectiveAdjustments get() = if (lightApplies) adjustments.copy(light = light) else adjustments
+    val effectiveAdjustments get() = if (lightApplies) adjustments.copy(light = lightStrength.apply(light)) else adjustments
     val canUndo get() = history.isNotEmpty()
     val isInTool get() = isErasing || isCropping || isRefining
     val cropChanged get() = cropRect != FullFrame
@@ -146,7 +147,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                         backgroundPhoto = s.backgroundPhoto,
                         squareCanvas = s.squareCanvas,
                         adjustments = s.adjustments,
-                        autoLight = s.autoLight,
+                        lightStrength = s.lightStrength,
                         brushSizeDp = s.brushSizeDp,
                         shadow = s.shadow,
                         warning = if (dark) PhotoWarning.TOO_DARK else null,
@@ -237,7 +238,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setBrightness(v: Float) = _state.update { it.copy(adjustments = it.adjustments.copy(brightness = v)) }
     fun setContrast(v: Float) = _state.update { it.copy(adjustments = it.adjustments.copy(contrast = v)) }
     fun resetAdjustments() = _state.update { it.copy(adjustments = Adjustments()) }
-    fun setAutoLight(on: Boolean) = _state.update { it.copy(autoLight = on) }
+    fun setLightStrength(strength: LightStrength) = _state.update { it.copy(lightStrength = strength) }
     fun clearMessage() = _state.update { it.copy(message = null) }
 
     // ---------- Undo (erase and crop) ----------

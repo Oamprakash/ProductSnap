@@ -532,17 +532,7 @@ private fun AdjustmentControls(state: EditorState, vm: EditorViewModel) {
             TextButton(onClick = vm::resetAdjustments, enabled = !state.adjustments.slidersNeutral) { Text("Reset") }
         }
         if (state.useCutout) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Auto light", style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        "Fixes a dim or tinted photo. It never changes the item's own colours.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(checked = state.autoLight, onCheckedChange = vm::setAutoLight)
-            }
+            LightStrengthPicker(state.lightStrength, enabled = true, onSelect = vm::setLightStrength)
         }
         LabeledSlider("Brightness", state.adjustments.brightness, vm::setBrightness)
         LabeledSlider("Contrast", state.adjustments.contrast, vm::setContrast)

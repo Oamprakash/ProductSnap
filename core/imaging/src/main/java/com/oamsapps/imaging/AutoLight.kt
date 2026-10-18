@@ -46,9 +46,11 @@ object AutoLight {
      * shots reach 170+) that the 1.6× cap barely helped.
      */
     const val MAX_EXPOSURE_DIM = 2.8f
+    /** Default cap for very dark photos: on device 2.8× looked too strong, 2.2× right. The app lets users pick. */
+    const val DEFAULT_DIM_CAP = 2.2f
     /** The scene's 99th-percentile brightness at or above which a photo counts as normally exposed... */
     const val DIM_START = 120f
-    /** ...and at or below which it gets the full [MAX_EXPOSURE_DIM]; in between, the cap rises linearly. */
+    /** ...and at or below which it gets the full dim cap; in between, the cap rises linearly. */
     const val DIM_FULL = 80f
     const val TARGET_WHITE = 240f
     const val MAX_WB_SHIFT = 0.15f
@@ -147,9 +149,20 @@ object AutoLight {
      * How far a photo may be brightened. A dark item in a normally lit room keeps the 1.6× cap (more would turn it
      * grey); only a photo whose brightest areas are themselves dark, i.e. taken in too little light, may go further.
      */
-    fun exposureCap(sceneP99: Float): Float {
+    fun exposureCap(sceneP99: Float, dimCap: Float = DEFAULT_DIM_CAP): Float {
+        val top = dimCap.coerceIn(MAX_EXPOSURE, MAX_EXPOSURE_DIM)
         val t = ((DIM_START - sceneP99) / (DIM_START - DIM_FULL)).coerceIn(0f, 1f)
-        return MAX_EXPOSURE + t * (MAX_EXPOSURE_DIM - MAX_EXPOSURE)
+        return MAX_EXPOSURE + t * (top - MAX_EXPOSURE)
+    }
+
+    /**
+     * The same measurement with another cap for very dark photos ([MAX_EXPOSURE] to [MAX_EXPOSURE_DIM]), so the
+     * strength can change without measuring again. Normally exposed photos are unaffected.
+     */
+    fun withDimCap(f: LightFix, dimCap: Float): LightFix {
+        if (f == LightFix.NONE) return f
+        val sceneP99 = TARGET_WHITE / f.sceneGain
+        return f.copy(exposure = min(f.sceneGain, f.itemGain).coerceIn(1f, exposureCap(sceneP99, dimCap)))
     }
 
     /** Applies the gains natively; alpha is untouched, values clip at 255. */

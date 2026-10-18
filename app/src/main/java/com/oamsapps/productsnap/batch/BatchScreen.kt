@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oamsapps.imaging.PhotoWarning
 import com.oamsapps.productsnap.billing.PremiumManager
 import com.oamsapps.productsnap.editor.BackgroundPicker
+import com.oamsapps.productsnap.editor.LightStrengthPicker
 import com.oamsapps.productsnap.image.BatchCrop
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -160,7 +161,7 @@ private fun SettingsCard(state: BatchState, vm: BatchViewModel, onChoosePhoto: (
             SettingSwitch("Remove background", state.removeBackground, enabled, vm::setRemoveBackground)
             if (state.removeBackground) {
                 SettingSwitch("Shadow under product", state.shadow, enabled, vm::setShadow)
-                SettingSwitch("Auto light", state.autoLight, enabled, vm::setAutoLight)
+                LightStrengthPicker(state.lightStrength, enabled, vm::setLightStrength)
             }
             SettingSwitch("Square for marketplaces", state.squareCanvas, enabled, vm::setSquare)
             Text("Background", style = MaterialTheme.typography.bodyLarge)

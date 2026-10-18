@@ -4,6 +4,7 @@ import android.content.Context
 import com.oamsapps.productsnap.image.Adjustments
 import com.oamsapps.productsnap.image.BatchCrop
 import com.oamsapps.productsnap.image.ExportSettings
+import com.oamsapps.productsnap.image.LightStrength
 import com.oamsapps.productsnap.image.background.BackgroundPresets
 import com.oamsapps.productsnap.image.background.BackgroundStyle
 import com.oamsapps.productsnap.image.background.backgroundFromJson
@@ -36,8 +37,8 @@ data class BatchSettings(
     val adjustments: Adjustments = Adjustments(),
     val crop: BatchCrop = BatchCrop.NONE,
     val shadow: Boolean = true,
-    /** Apply each photo's measured light fix (only with background removal). */
-    val autoLight: Boolean = true,
+    /** Auto light level for each photo's measured light fix (only with background removal). */
+    val lightStrength: LightStrength = LightStrength.DEFAULT,
 ) {
     fun toExport(premium: Boolean) = ExportSettings(
         removeBackground = removeBackground,
@@ -47,7 +48,7 @@ data class BatchSettings(
         premium = premium,
         crop = crop,
         shadow = shadow,
-        autoLight = autoLight,
+        lightStrength = lightStrength,
     )
 }
 
@@ -124,7 +125,7 @@ class BatchStore private constructor(context: Context) {
             put("contrast", job.settings.adjustments.contrast.toDouble())
             put("crop", job.settings.crop.name)
             put("shadow", job.settings.shadow)
-            put("autoLight", job.settings.autoLight)
+            put("lightStrength", job.settings.lightStrength.name)
         })
         put("items", JSONArray().apply {
             job.items.forEach { item ->
@@ -154,7 +155,9 @@ class BatchStore private constructor(context: Context) {
             ),
             crop = runCatching { BatchCrop.valueOf(s.optString("crop", "NONE")) }.getOrDefault(BatchCrop.NONE),
             shadow = s.optBoolean("shadow", true),
-            autoLight = s.optBoolean("autoLight", true),
+            // Builds before the levels had an on/off switch.
+            lightStrength = if (s.has("lightStrength")) LightStrength.fromName(s.getString("lightStrength"))
+                else if (!s.optBoolean("autoLight", true)) LightStrength.OFF else LightStrength.DEFAULT,
         )
         val arr = json.getJSONArray("items")
         val items = (0 until arr.length()).map { i ->

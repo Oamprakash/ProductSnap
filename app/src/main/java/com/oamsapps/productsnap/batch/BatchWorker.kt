@@ -250,7 +250,8 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                 withShadow
             }
             val spec = settings.renderSpec(content, backgroundPhoto).let { spec ->
-                if (settings.autoLight && light != LightFix.NONE) spec.copy(adjustments = spec.adjustments.copy(light = light)) else spec
+                val fix = settings.lightStrength.apply(light)
+                if (fix != LightFix.NONE) spec.copy(adjustments = spec.adjustments.copy(light = fix)) else spec
             }
             val out = clock.time(RunClock.RENDER) { ImageRenderer.render(spec) }
             return Rendered(p.item, out)
