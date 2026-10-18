@@ -1,57 +1,70 @@
 package com.oamsapps.productsnap.editor
 
-import com.oamsapps.productsnap.ui.BuildTitle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.Compare
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Healing
-import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material3.*
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.material.icons.filled.Compare
-import com.oamsapps.productsnap.ui.shareIntent
-import com.oamsapps.productsnap.ui.PhotoTips
-import com.oamsapps.productsnap.ui.PhotoTipsDialog
 import androidx.compose.material.icons.filled.Lightbulb
-import com.oamsapps.productsnap.image.Marketplace
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material.icons.filled.Adjust
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Share
-import com.oamsapps.imaging.PhotoWarning
+import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.oamsapps.imaging.PhotoWarning
+import com.oamsapps.productsnap.image.Marketplace
+import com.oamsapps.productsnap.ui.AccentButton
+import com.oamsapps.productsnap.ui.BuildTag
+import com.oamsapps.productsnap.ui.InkButton
+import com.oamsapps.productsnap.ui.PaperButton
+import com.oamsapps.productsnap.ui.PhotoTipsDialog
+import com.oamsapps.productsnap.ui.StageIconButton
+import com.oamsapps.productsnap.ui.StagePill
+import com.oamsapps.productsnap.ui.shareIntent
+import com.oamsapps.productsnap.ui.theme.Studio
 
 /** Aspect presets for the editor crop. Values are width / height. */
 private val CropPresets = listOf(
@@ -62,12 +75,21 @@ private val CropPresets = listOf(
     "16:9" to 16f / 9f,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** The editor's panels. Flaws and Crop open their tools straight away. */
+private enum class Tab(val label: String, val icon: ImageVector) {
+    Cutout("Cutout", Icons.Default.AutoFixHigh),
+    Background("Background", Icons.Default.Wallpaper),
+    Light("Light", Icons.Default.WbSunny),
+    Flaws("Flaws", Icons.Default.Adjust),
+    Crop("Crop", Icons.Default.Crop),
+}
+
 @Composable
-fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: () -> Unit) {
+fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onOpenBatch: () -> Unit, onOpenPaywall: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val premium by vm.isPremium.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let(vm::loadImage)
@@ -82,132 +104,68 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
     BackHandler(enabled = state.isCropping) { vm.cancelCrop() }
     BackHandler(enabled = state.isRefining) { vm.cancelRefine() }
     BackHandler(enabled = state.isMarkingFlaws) { vm.finishFlaws() }
-    val context = LocalContext.current
-    var showTips by remember { mutableStateOf(!PhotoTips.seen(context)) }
-    if (showTips) PhotoTipsDialog(onDismiss = { PhotoTips.markSeen(context); showTips = false })
+
+    var showTips by remember { mutableStateOf(false) }
+    if (showTips) PhotoTipsDialog(onDismiss = { showTips = false })
+    var tab by rememberSaveable { mutableStateOf(Tab.Cutout) }
+
     LaunchedEffect(state.shareUris) {
         val uris = state.shareUris ?: return@LaunchedEffect
         vm.shareHandled()
         runCatching { context.startActivity(shareIntent(uris)) }
     }
-
     LaunchedEffect(state.message) {
         state.message?.let { snackbar.showSnackbar(it); vm.clearMessage() }
     }
-
     LaunchedEffect(state.paywallRequested) {
         if (state.paywallRequested) { onOpenPaywall(); vm.paywallShown() }
     }
 
-    Scaffold(
-        topBar = {
-            when {
-                state.isErasing -> TopAppBar(
-                    title = { BuildTitle("Magic eraser") },
-                    navigationIcon = {
-                        IconButton(onClick = vm::finishErase, enabled = !state.isApplyingErase) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor")
-                        }
-                    },
-                )
-                state.isMarkingFlaws -> TopAppBar(
-                    title = { BuildTitle("Mark flaws") },
-                    navigationIcon = {
-                        IconButton(onClick = vm::finishFlaws) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor") }
-                    },
-                )
-                state.isRefining -> TopAppBar(
-                    title = { BuildTitle("Fix cutout") },
-                    navigationIcon = {
-                        IconButton(onClick = vm::cancelRefine) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Cancel fixes") }
-                    },
-                )
-                state.isCropping -> TopAppBar(
-                    title = { BuildTitle("Crop") },
-                    navigationIcon = {
-                        IconButton(onClick = vm::cancelCrop) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Cancel crop") }
-                    },
-                    actions = {
-                        TextButton(onClick = vm::resetCrop, enabled = state.cropChanged) { Text("Reset") }
-                    },
-                )
-                else -> TopAppBar(
-                    title = { BuildTitle("ProductSnap") },
-                    actions = {
-                        IconButton(onClick = { showTips = true }) { Icon(Icons.Default.Lightbulb, "Photo tips") }
-                        if (state.canUndo) {
-                            IconButton(onClick = vm::undo) { Icon(Icons.AutoMirrored.Filled.Undo, "Undo last edit") }
-                        }
-                        IconButton(onClick = onOpenBatch) { Icon(Icons.Default.PhotoLibrary, "Edit many photos") }
-                        if (state.hasImage) {
-                            IconButton(onClick = pick) { Icon(Icons.Default.AddPhotoAlternate, "Choose another photo") }
-                        }
-                    },
-                )
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-        bottomBar = {
-            if (state.hasImage) {
-                Surface(tonalElevation = 3.dp) {
-                    val barModifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp)
-                    when {
-                        state.isErasing ->
-                            Button(onClick = vm::finishErase, enabled = !state.isApplyingErase, modifier = barModifier) {
-                                Text("Done")
-                            }
-                        state.isMarkingFlaws ->
-                            Button(onClick = vm::finishFlaws, modifier = barModifier) { Text("Done") }
-                        state.isRefining ->
-                            Row(barModifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                OutlinedButton(onClick = vm::cancelRefine, modifier = Modifier.weight(1f)) { Text("Cancel") }
-                                Button(onClick = vm::applyRefine, enabled = state.refineStrokes.isNotEmpty(), modifier = Modifier.weight(1f)) {
-                                    Text("Done")
-                                }
-                            }
-                        state.isCropping ->
-                            Row(barModifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                OutlinedButton(onClick = vm::cancelCrop, modifier = Modifier.weight(1f)) { Text("Cancel") }
-                                Button(onClick = vm::applyCrop, enabled = state.cropChanged, modifier = Modifier.weight(1f)) {
-                                    Text("Apply crop")
-                                }
-                            }
-                        else ->
-                            Column(barModifier, horizontalAlignment = Alignment.CenterHorizontally) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Button(onClick = { vm.save() }, enabled = !state.isSaving, modifier = Modifier.weight(1f)) {
-                                        Icon(Icons.Default.Download, null)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(if (premium) "Save" else "Save (watermark)")
-                                    }
-                                    OutlinedButton(onClick = { vm.save(share = true) }, enabled = !state.isSaving, modifier = Modifier.weight(1f)) {
-                                        Icon(Icons.Default.Share, null)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("Share")
-                                    }
-                                }
-                                if (!premium) {
-                                    TextButton(onClick = onOpenPaywall) { Text("Remove watermark with Premium") }
-                                }
-                            }
-                    }
+    val original = state.original
+    Box(Modifier.fillMaxSize().background(Studio.Stage)) {
+        Column(Modifier.fillMaxSize()) {
+            // Top bar on the stage
+            Row(
+                Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                when {
+                    state.isErasing -> StageIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor", vm::finishErase, enabled = !state.isApplyingErase)
+                    state.isMarkingFlaws -> StageIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor", vm::finishFlaws)
+                    state.isRefining -> StageIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Cancel fixes", vm::cancelRefine)
+                    state.isCropping -> StageIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Cancel crop", vm::cancelCrop)
+                    else -> StageIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Home", onBack)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        when {
+                            state.isErasing -> "Magic eraser"
+                            state.isMarkingFlaws -> "Mark flaws"
+                            state.isRefining -> "Fix cutout"
+                            state.isCropping -> "Crop"
+                            else -> "Edit photo"
+                        },
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Studio.StageText,
+                    )
+                    BuildTag(color = Studio.StageMuted)
+                }
+                if (!state.isInTool) {
+                    if (state.canUndo) StageIconButton(Icons.AutoMirrored.Filled.Undo, "Undo last edit", vm::undo)
+                    StageIconButton(Icons.Default.Lightbulb, "Photo tips", { showTips = true })
+                    StageIconButton(Icons.Default.AddPhotoAlternate, "Choose another photo", pick)
+                    StageIconButton(Icons.Default.PhotoLibrary, "Edit many photos", onOpenBatch)
+                } else if (state.isCropping) {
+                    TextButton(onClick = vm::resetCrop, enabled = state.cropChanged) { Text("Reset", color = Studio.StageText) }
                 }
             }
-        },
-    ) { padding ->
-        val original = state.original
-        val content = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)
-        when {
-            original == null ->
-                EmptyState(onPick = pick, onOpenBatch = onOpenBatch, loading = state.isLoading, modifier = Modifier.padding(padding))
 
-            // Tools don't scroll: the photo is fitted into the space above the controls,
-            // so tall photos are always fully visible and every edge can be reached.
-            state.isErasing ->
-                ToolLayout(
-                    aspect = original.width / original.height.toFloat(),
-                    modifier = Modifier.padding(padding),
-                    canvas = {
+            // The stage: the photo, fitted to the space left by the panel.
+            Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
+                when {
+                    original == null -> EmptyStage(loading = state.isLoading, onPick = pick)
+                    state.isErasing -> FitToSpace(original.width / original.height.toFloat(), Modifier.fillMaxSize()) {
                         EraseCanvas(
                             bitmap = original,
                             strokes = state.eraseStrokes,
@@ -216,23 +174,11 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                             isWorking = state.isApplyingErase,
                             onStroke = vm::addEraseStroke,
                         )
-                    },
-                    controls = { EraseControls(state, vm) },
-                )
-
-            state.isMarkingFlaws ->
-                ToolLayout(
-                    aspect = original.width / original.height.toFloat(),
-                    modifier = Modifier.padding(padding),
-                    canvas = { FlawCanvas(original, state.flaws, onTap = vm::tapFlaw) },
-                    controls = { FlawControls(state, vm) },
-                )
-
-            state.isRefining ->
-                ToolLayout(
-                    aspect = original.width / original.height.toFloat(),
-                    modifier = Modifier.padding(padding),
-                    canvas = {
+                    }
+                    state.isMarkingFlaws -> FitToSpace(original.width / original.height.toFloat(), Modifier.fillMaxSize()) {
+                        FlawCanvas(original, state.flaws, onTap = vm::tapFlaw)
+                    }
+                    state.isRefining -> FitToSpace(original.width / original.height.toFloat(), Modifier.fillMaxSize()) {
                         EraseCanvas(
                             bitmap = state.refinePreview ?: original,
                             strokes = emptyList(),
@@ -246,103 +192,269 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                             description = "Cutout over a faint copy of the photo. Paint to " +
                                 (if (state.refineRestore) "restore" else "remove") + ". Pinch to zoom.",
                         )
-                    },
-                    controls = { RefineControls(state, vm) },
-                )
+                    }
+                    state.isCropping -> FitToSpace(original.width / original.height.toFloat(), Modifier.fillMaxSize()) {
+                        CropCanvas(bitmap = original, rect = state.cropRect, aspect = state.cropAspect, onRectChange = vm::setCropRect)
+                    }
+                    else -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        StatusRow(state)
+                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Preview(state) }
+                    }
+                }
+            }
 
-            state.isCropping ->
-                ToolLayout(
-                    aspect = original.width / original.height.toFloat(),
-                    modifier = Modifier.padding(padding),
-                    canvas = {
-                        CropCanvas(
-                            bitmap = original,
-                            rect = state.cropRect,
-                            aspect = state.cropAspect,
-                            onRectChange = vm::setCropRect,
-                        )
-                    },
-                    controls = { CropControls(state, vm) },
-                )
-
-            else ->
-                Column(content, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    state.warning?.let { WarningCard(it, onFix = vm::startRefine, onIgnore = vm::dismissWarning) }
-                    Preview(state)
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+            // Paper panel
+            if (original != null) {
+                Surface(
+                    color = Studio.Paper,
+                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        Modifier.navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        // Hand fixes for what background removal got wrong (or couldn't do at all).
-                        OutlinedButton(onClick = vm::startRefine, enabled = !state.isRemovingBackground) {
-                            Icon(Icons.Default.Brush, null, Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Fix cutout")
-                        }
-                        OutlinedButton(onClick = vm::startFlaws, enabled = !state.isRemovingBackground) {
-                            Icon(Icons.Default.Adjust, null, Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(if (state.flaws.isEmpty()) "Mark flaws" else "Flaws (${state.flaws.size})")
-                        }
-                        OutlinedButton(onClick = vm::startCrop, enabled = !state.isRemovingBackground) {
-                            Icon(Icons.Default.Crop, null, Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Crop")
-                        }
-                        OutlinedButton(onClick = vm::startErase, enabled = !state.isRemovingBackground) {
-                            Icon(Icons.Default.Healing, null, Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Magic eraser")
+                        when {
+                            state.isErasing -> {
+                                ToolPanel { EraseControls(state, vm) }
+                                InkButton("Done", vm::finishErase, Modifier.fillMaxWidth(), enabled = !state.isApplyingErase)
+                            }
+                            state.isMarkingFlaws -> {
+                                ToolPanel { FlawControls(state, vm) }
+                                InkButton("Done", vm::finishFlaws, Modifier.fillMaxWidth())
+                            }
+                            state.isRefining -> {
+                                ToolPanel { RefineControls(state, vm) }
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    PaperButton("Cancel", vm::cancelRefine, Modifier.weight(1f))
+                                    InkButton("Done", vm::applyRefine, Modifier.weight(1f), enabled = state.refineStrokes.isNotEmpty())
+                                }
+                            }
+                            state.isCropping -> {
+                                ToolPanel { CropControls(state, vm) }
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    PaperButton("Cancel", vm::cancelCrop, Modifier.weight(1f))
+                                    InkButton("Apply crop", vm::applyCrop, Modifier.weight(1f), enabled = state.cropChanged)
+                                }
+                            }
+                            else -> {
+                                state.warning?.let { WarningCard(it, onFix = vm::startRefine, onIgnore = vm::dismissWarning) }
+                                TabRow(
+                                    selected = tab,
+                                    flawCount = state.flaws.size,
+                                    enabled = !state.isRemovingBackground,
+                                    onSelect = { t ->
+                                        when (t) {
+                                            Tab.Flaws -> vm.startFlaws()
+                                            Tab.Crop -> vm.startCrop()
+                                            else -> tab = t
+                                        }
+                                    },
+                                )
+                                ToolPanel {
+                                    when (tab) {
+                                        Tab.Cutout -> CutoutPanel(state, vm)
+                                        Tab.Background -> BackgroundPanel(state, vm, premium, onChoosePhoto = pickBackground)
+                                        Tab.Light -> LightPanel(state, vm)
+                                        Tab.Flaws, Tab.Crop -> Unit
+                                    }
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    AccentButton(
+                                        text = if (state.isSaving) "Saving…" else "Save",
+                                        icon = Icons.Default.Download,
+                                        onClick = { vm.save() },
+                                        enabled = !state.isSaving,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    InkButton(
+                                        text = "Share",
+                                        icon = Icons.Default.Share,
+                                        onClick = { vm.save(share = true) },
+                                        enabled = !state.isSaving,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                                if (!premium) {
+                                    Text(
+                                        "Free saves carry a small watermark. Remove it with Premium →",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Studio.Muted,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable(role = Role.Button, onClick = onOpenPaywall)
+                                            .padding(vertical = 6.dp),
+                                    )
+                                }
+                            }
                         }
                     }
-                    BackgroundControls(state, vm, premium, onChoosePhoto = pickBackground)
-                    AdjustmentControls(state, vm)
                 }
+            }
         }
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 180.dp))
     }
 }
 
 @Composable
-private fun EmptyState(onPick: () -> Unit, onOpenBatch: () -> Unit, loading: Boolean, modifier: Modifier = Modifier) {
-    Column(
-        modifier.fillMaxSize().padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("Clean product photos in seconds", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Pick a photo, remove the background, and save a square image ready for your store.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(24.dp))
-        if (loading) {
-            CircularProgressIndicator()
-        } else {
-            Button(onClick = onPick) { Text("Choose a photo") }
-            TextButton(onClick = onOpenBatch) { Text("Edit many photos at once") }
+private fun EmptyStage(loading: Boolean, onPick: () -> Unit) {
+    if (loading) {
+        CircularProgressIndicator(color = Studio.Accent)
+    } else {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("No photo open", style = MaterialTheme.typography.headlineSmall, color = Studio.StageText)
+            AccentButton("Choose a photo", onPick, icon = Icons.Default.AddPhotoAlternate)
         }
     }
 }
 
-/**
- * Photo on top, fitted to the free space at its own aspect ratio; controls below.
- * Controls scroll on their own if the screen is very short (e.g. landscape).
- */
+/** What the photo is being made for and what has been done to it, as small pills over the stage. */
 @Composable
-private fun ToolLayout(
-    aspect: Float,
-    canvas: @Composable () -> Unit,
-    controls: @Composable () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun StatusRow(state: EditorState) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        StagePill(state.marketplace?.let { "${it.label} · ${shape(it)}" } ?: if (state.squareCanvas) "Square" else "Photo's own shape", dot = Studio.Accent)
+        when {
+            state.isRemovingBackground -> StagePill("Cutting out…")
+            state.useCutout && state.isNatural -> StagePill("Real background", dot = Studio.Good)
+            state.useCutout -> StagePill("Background removed", dot = Studio.Good)
+        }
+        if (state.flaws.isNotEmpty()) StagePill("${state.flaws.size} flaw${if (state.flaws.size == 1) "" else "s"} marked")
+    }
+}
+
+private fun shape(m: Marketplace) = when {
+    m.aspect == 1f -> "1:1"
+    m.aspect > 1f -> "4:3"
+    else -> "4:5"
+}
+
+/** Panel controls scroll on their own so Save and Share stay put on short screens. */
+@Composable
+private fun ToolPanel(content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier.fillMaxSize().padding(16.dp),
+        Modifier.fillMaxWidth().heightIn(max = 240.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
+        content = content,
+    )
+}
+
+@Composable
+private fun TabRow(selected: Tab, flawCount: Int, enabled: Boolean, onSelect: (Tab) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        FitToSpace(aspect, Modifier.weight(1f).fillMaxWidth()) { canvas() }
-        Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) { controls() }
+        Tab.entries.forEach { t ->
+            val on = t == selected
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = if (on) Studio.Ink else Studio.Chip,
+                contentColor = if (on) Studio.Paper else Studio.Ink,
+                modifier = Modifier
+                    .heightIn(min = 44.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .selectable(selected = on, enabled = enabled, role = Role.Tab, onClick = { onSelect(t) }),
+            ) {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(t.icon, null, Modifier.size(18.dp))
+                    Text(
+                        if (t == Tab.Flaws && flawCount > 0) "Flaws ($flawCount)" else t.label,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CutoutPanel(state: EditorState, vm: EditorViewModel) {
+    Segmented(
+        left = "Remove background",
+        right = "Original",
+        leftSelected = state.useCutout,
+        enabled = !state.isRemovingBackground,
+        onLeft = vm::removeBackground,
+        onRight = vm::showOriginal,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        PaperButton("Fix cutout", vm::startRefine, Modifier.weight(1f), icon = Icons.Default.Brush, enabled = !state.isRemovingBackground)
+        PaperButton("Magic eraser", vm::startErase, Modifier.weight(1f), icon = Icons.Default.Healing, enabled = !state.isRemovingBackground)
+    }
+    if (state.useCutout && !state.isNatural) {
+        SwitchRow("Shadow under product", null, state.shadow, vm::setShadow)
+    }
+}
+
+@Composable
+private fun BackgroundPanel(state: EditorState, vm: EditorViewModel, premium: Boolean, onChoosePhoto: () -> Unit) {
+    MarketplacePicker(state.marketplace, enabled = !state.isRemovingBackground, premium = premium, onSelect = vm::setMarketplace)
+    if (state.marketplace == null) SwitchRow("Square", null, state.squareCanvas, vm::setSquare)
+    BackgroundPicker(
+        selected = state.background,
+        photoThumb = state.backgroundPhoto,
+        onSelect = vm::setBackground,
+        onChoosePhoto = onChoosePhoto,
+        onBlurChange = vm::setBackgroundBlur,
+        enabled = !state.isRemovingBackground,
+        busy = state.isPreparingBackground,
+    )
+    if (!state.useCutout && state.canvasAspect == null) {
+        Text(
+            "Turn on Remove background or Square to see the background.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Studio.Muted,
+        )
+    }
+}
+
+@Composable
+private fun LightPanel(state: EditorState, vm: EditorViewModel) {
+    LightStrengthPicker(state.lightStrength, enabled = true, onSelect = vm::setLightStrength)
+    LabeledSlider("Brightness", state.adjustments.brightness, vm::setBrightness)
+    LabeledSlider("Contrast", state.adjustments.contrast, vm::setContrast)
+    TextButton(onClick = vm::resetAdjustments, enabled = !state.adjustments.slidersNeutral) {
+        Text("Reset sliders", color = if (state.adjustments.slidersNeutral) Studio.Muted else Studio.Ink)
+    }
+}
+
+@Composable
+private fun Segmented(left: String, right: String, leftSelected: Boolean, enabled: Boolean, onLeft: () -> Unit, onRight: () -> Unit) {
+    Surface(shape = RoundedCornerShape(16.dp), color = Studio.Chip, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(4.dp).selectableGroup()) {
+            listOf(left to leftSelected, right to !leftSelected).forEachIndexed { i, (label, on) ->
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (on) Studio.Ink else Color.Transparent,
+                    contentColor = if (on) Studio.Paper else Studio.Ink,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .selectable(selected = on, enabled = enabled, role = Role.RadioButton, onClick = if (i == 0) onLeft else onRight),
+                ) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(10.dp)) {
+                        Text(label, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SwitchRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Studio.Muted)
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(checkedTrackColor = Studio.Ink, checkedThumbColor = Studio.Accent),
+        )
     }
 }
 
@@ -356,133 +468,77 @@ private fun FitToSpace(aspect: Float, modifier: Modifier = Modifier, content: @C
 }
 
 @Composable
+private fun Hint(text: String) {
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = Studio.Muted)
+}
+
+@Composable
 private fun CropControls(state: EditorState, vm: EditorViewModel) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            if (state.cropAspect == null) "Drag the corners or edges to crop, or drag the middle to move the frame."
-            else "Drag a corner to resize, or the middle to move the frame.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-        ) {
-            CropPresets.forEach { (label, aspect) ->
-                FilterChip(
-                    selected = state.cropAspect == aspect,
-                    onClick = { vm.setCropAspect(aspect) },
-                    label = { Text(label) },
-                )
-            }
+    Hint(
+        if (state.cropAspect == null) "Drag the corners or edges to crop, or drag the middle to move the frame."
+        else "Drag a corner to resize, or the middle to move the frame."
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        CropPresets.forEach { (label, aspect) ->
+            FilterChip(selected = state.cropAspect == aspect, onClick = { vm.setCropAspect(aspect) }, label = { Text(label) })
         }
-        // Only offered when a cutout already exists, so this never triggers background removal on its own.
-        if (state.cutout != null) {
-            OutlinedButton(onClick = vm::fitCropToProduct) {
-                Icon(Icons.Default.FitScreen, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Fit to product")
-            }
-        }
+    }
+    // Only offered when a cutout already exists, so this never triggers background removal on its own.
+    if (state.cutout != null) {
+        PaperButton("Fit to product", vm::fitCropToProduct, icon = Icons.Default.FitScreen)
     }
 }
 
 @Composable
 private fun FlawControls(state: EditorState, vm: EditorViewModel) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            "Tap each stain, tear or mark so buyers see it up front. Every flaw is also saved as its own close-up " +
-                "photo. Tap a circle to remove it.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Column {
-            Text("Circle size", style = MaterialTheme.typography.bodyMedium)
-            Slider(value = state.flawSize, onValueChange = vm::setFlawSize, valueRange = 0.02f..0.15f)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Circle flaws on the main photo", style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    if (state.marketplace == Marketplace.EBAY) "Off for eBay, which doesn't allow added marks. The close-ups show the flaws instead."
-                    else "The close-ups are saved either way.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Switch(checked = state.circleFlaws, onCheckedChange = vm::setCircleFlaws)
-        }
-        TextButton(onClick = vm::undoFlaw, enabled = state.flaws.isNotEmpty()) { Text("Undo last flaw") }
-    }
+    Hint("Tap each stain, tear or mark so buyers see it up front. Every flaw is also saved as its own close-up photo. Tap a circle to remove it.")
+    LabeledSlider("Circle size", state.flawSize, vm::setFlawSize, 0.02f..0.15f)
+    SwitchRow(
+        "Circle flaws on the main photo",
+        if (state.marketplace == Marketplace.EBAY) "Off for eBay, which doesn't allow added marks. The close-ups show the flaws instead."
+        else "The close-ups are saved either way.",
+        state.circleFlaws,
+        vm::setCircleFlaws,
+    )
+    TextButton(onClick = vm::undoFlaw, enabled = state.flaws.isNotEmpty()) { Text("Undo last flaw", color = Studio.Ink) }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RefineControls(state: EditorState, vm: EditorViewModel) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            SegmentedButton(
-                selected = !state.refineRestore,
-                onClick = { vm.setRefineRestore(false) },
-                shape = SegmentedButtonDefaults.itemShape(0, 2),
-            ) { Text("Remove") }
-            SegmentedButton(
-                selected = state.refineRestore,
-                onClick = { vm.setRefineRestore(true) },
-                shape = SegmentedButtonDefaults.itemShape(1, 2),
-            ) { Text("Restore") }
-        }
-        Text(
-            if (state.refineRestore) "Paint over parts of the product that were cut away. They come back exactly as photographed."
-            else "Paint over anything that isn't the product, like a hanger or background between straps.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Column {
-            Text("Brush size", style = MaterialTheme.typography.bodyMedium)
-            Slider(value = state.brushSizeDp, onValueChange = vm::setBrushSize, valueRange = 12f..64f)
-        }
-        TextButton(onClick = vm::undoRefineStroke, enabled = state.refineStrokes.isNotEmpty()) {
-            Text("Undo stroke")
-        }
-    }
+    Segmented(
+        left = "Remove",
+        right = "Restore",
+        leftSelected = !state.refineRestore,
+        enabled = true,
+        onLeft = { vm.setRefineRestore(false) },
+        onRight = { vm.setRefineRestore(true) },
+    )
+    Hint(
+        if (state.refineRestore) "Paint over parts of the product that were cut away. They come back exactly as photographed."
+        else "Paint over anything that isn't the product, like a hanger or background between straps."
+    )
+    LabeledSlider("Brush size", state.brushSizeDp, vm::setBrushSize, 12f..64f)
+    TextButton(onClick = vm::undoRefineStroke, enabled = state.refineStrokes.isNotEmpty()) { Text("Undo stroke", color = Studio.Ink) }
 }
 
 @Composable
 private fun EraseControls(state: EditorState, vm: EditorViewModel) {
     val busy = state.isApplyingErase
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            "Paint over background clutter, then tap Erase. Pinch to zoom in on small spots. " +
-                "The product itself is protected, so its real condition stays visible to buyers.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Column {
-            Text("Brush size", style = MaterialTheme.typography.bodyMedium)
-            Slider(
-                value = state.brushSizeDp,
-                onValueChange = vm::setBrushSize,
-                valueRange = 12f..64f,
-                enabled = !busy,
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = vm::undoEraseStroke, enabled = state.eraseStrokes.isNotEmpty() && !busy) {
-                Text("Undo stroke")
-            }
-            TextButton(onClick = vm::undo, enabled = state.canUndo && !busy) {
-                Text("Undo last edit")
-            }
-        }
-        Button(
-            onClick = vm::applyErase,
-            enabled = state.eraseStrokes.isNotEmpty() && !busy,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(if (busy) "Erasing…" else "Erase")
-        }
+    Hint(
+        "Paint over background clutter, then tap Erase. Pinch to zoom in on small spots. " +
+            "The product itself is protected, so its real condition stays visible to buyers."
+    )
+    LabeledSlider("Brush size", state.brushSizeDp, vm::setBrushSize, 12f..64f, enabled = !busy)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = vm::undoEraseStroke, enabled = state.eraseStrokes.isNotEmpty() && !busy) { Text("Undo stroke", color = Studio.Ink) }
+        TextButton(onClick = vm::undo, enabled = state.canUndo && !busy) { Text("Undo last edit", color = Studio.Ink) }
     }
+    AccentButton(
+        text = if (busy) "Erasing…" else "Erase",
+        onClick = vm::applyErase,
+        enabled = state.eraseStrokes.isNotEmpty() && !busy,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /** A tip about the photo, with a way to act on it or carry on regardless. */
@@ -494,20 +550,17 @@ private fun WarningCard(warning: PhotoWarning, onFix: () -> Unit, onIgnore: () -
         PhotoWarning.RUNS_OFF_EDGE -> "Check the edges of the cutout" to
             "The item runs off the edge of the photo, so the cutout may include background there. Fix it with the brush, or retake with space around the item."
     }
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Surface(shape = RoundedCornerShape(18.dp), color = Studio.WarnBg, contentColor = Studio.OnWarn, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.WarningAmber, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                Icon(Icons.Default.WarningAmber, null, Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                Text(title, style = MaterialTheme.typography.titleSmall)
             }
-            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+            Text(body, style = MaterialTheme.typography.bodyMedium)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                if (warning == PhotoWarning.RUNS_OFF_EDGE) TextButton(onClick = onFix) { Text("Fix cutout") }
-                TextButton(onClick = onIgnore) { Text(if (warning == PhotoWarning.TOO_DARK) "Use anyway" else "Ignore") }
+                if (warning == PhotoWarning.RUNS_OFF_EDGE) TextButton(onClick = onFix) { Text("Fix cutout", color = Studio.OnWarn) }
+                TextButton(onClick = onIgnore) { Text(if (warning == PhotoWarning.TOO_DARK) "Use anyway" else "Ignore", color = Studio.OnWarn) }
             }
         }
     }
@@ -535,148 +588,97 @@ private fun Preview(state: EditorState) {
     val originalImage = remember(state.source) { state.source?.asImageBitmap() }
     val marks = remember(state.flaws, state.circleFlaws, bmp) { state.flawMarks(bmp) }
     val inset = if (!natural && aspect != null) 20.dp else 0.dp
+    val boxAspect = if (natural || aspect == null) bmp.width / bmp.height.toFloat() else aspect
 
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .aspectRatio(if (natural || aspect == null) bmp.width / bmp.height.toFloat() else aspect)
-            .clip(RoundedCornerShape(12.dp))
-            .then(if (fillsBackground && !comparing) Modifier.backgroundStyle(state.background, photo) else Modifier)
-            .pinchToZoom(zoom),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (comparing && originalImage != null) {
-            Image(
-                bitmap = originalImage,
-                contentDescription = "Original photo",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize().zoomTransform(zoom),
-            )
-        } else {
-            Image(
-                bitmap = image,
-                contentDescription = "Edited photo. Pinch or double-tap to zoom.",
-                colorFilter = filter,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .zoomTransform(zoom)
-                    .padding(inset),
-            )
-            if (marks.isNotEmpty()) {
-                Canvas(Modifier.fillMaxSize().zoomTransform(zoom).padding(inset)) {
-                    // Same fit as the Image above.
-                    val s = minOf(size.width / bmp.width, size.height / bmp.height)
-                    val ox = (size.width - bmp.width * s) / 2f
-                    val oy = (size.height - bmp.height * s) / 2f
-                    marks.forEach { m -> drawFlawRing(Offset(ox + m.x * s, oy + m.y * s), m.r * s) }
+    FitToSpace(boxAspect, Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(20.dp))
+                .then(if (fillsBackground && !comparing) Modifier.backgroundStyle(state.background, photo) else Modifier)
+                .pinchToZoom(zoom),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (comparing && originalImage != null) {
+                Image(
+                    bitmap = originalImage,
+                    contentDescription = "Original photo",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize().zoomTransform(zoom),
+                )
+            } else {
+                Image(
+                    bitmap = image,
+                    contentDescription = "Edited photo. Pinch or double-tap to zoom.",
+                    colorFilter = filter,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize().zoomTransform(zoom).padding(inset),
+                )
+                if (marks.isNotEmpty()) {
+                    Canvas(Modifier.fillMaxSize().zoomTransform(zoom).padding(inset)) {
+                        // Same fit as the Image above.
+                        val s = minOf(size.width / bmp.width, size.height / bmp.height)
+                        val ox = (size.width - bmp.width * s) / 2f
+                        val oy = (size.height - bmp.height * s) / 2f
+                        marks.forEach { m -> drawFlawRing(Offset(ox + m.x * s, oy + m.y * s), m.r * s) }
+                    }
                 }
             }
-        }
-        // Only once something has changed: a cutout, crop, erase, light or slider change, or flaw circles.
-        val edited = state.source != null && (state.source !== bmp || filter != null || marks.isNotEmpty())
-        if (edited) {
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = if (comparing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.85f),
-                contentColor = if (comparing) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.inverseOnSurface,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(10.dp)
-                    .semantics { contentDescription = "Hold to see the original photo" }
-                    .pointerInput(Unit) {
-                        detectTapGestures(onPress = {
-                            comparing = true
-                            try { tryAwaitRelease() } finally { comparing = false }
-                        })
-                    },
-            ) {
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Compare, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (comparing) "Original photo" else "Hold to compare", style = MaterialTheme.typography.labelLarge)
+            // Only once something has changed: a cutout, crop, erase, light or slider change, or flaw circles.
+            val edited = state.source != null && (state.source !== bmp || filter != null || marks.isNotEmpty())
+            if (edited) {
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = if (comparing) Studio.Accent else Studio.Ink.copy(alpha = 0.85f),
+                    contentColor = if (comparing) Studio.Ink else Studio.Paper,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(10.dp)
+                        .semantics { contentDescription = "Hold to see the original photo" }
+                        .pointerInput(Unit) {
+                            detectTapGestures(onPress = {
+                                comparing = true
+                                try { tryAwaitRelease() } finally { comparing = false }
+                            })
+                        },
+                ) {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Compare, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (comparing) "Original photo" else "Hold to compare", style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
-        }
-        if (zoom.isZoomed) {
-            FilledTonalIconButton(
-                onClick = zoom::reset,
-                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(40.dp),
-            ) {
-                Icon(Icons.Default.FitScreen, "Fit photo to screen")
+            if (zoom.isZoomed) {
+                Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) {
+                    StageIconButton(Icons.Default.FitScreen, "Fit photo to screen", zoom::reset)
+                }
             }
-        }
-        if (state.isRemovingBackground) {
-            Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color.White)
+            if (state.isRemovingBackground) {
+                Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Studio.Accent)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun BackgroundControls(state: EditorState, vm: EditorViewModel, premium: Boolean, onChoosePhoto: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
-                selected = state.useCutout,
-                onClick = vm::removeBackground,
-                enabled = !state.isRemovingBackground,
-                label = { Text("Remove background") },
-                leadingIcon = { Icon(Icons.Default.AutoFixHigh, null, Modifier.size(18.dp)) },
-            )
-            FilterChip(selected = !state.useCutout, onClick = vm::showOriginal, label = { Text("Original") })
-        }
-        if (state.useCutout && !state.isNatural) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Shadow under product", Modifier.weight(1f))
-                Switch(checked = state.shadow, onCheckedChange = vm::setShadow)
-            }
-        }
-        MarketplacePicker(state.marketplace, enabled = !state.isRemovingBackground, premium = premium, onSelect = vm::setMarketplace)
-        if (state.marketplace == null) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Square", Modifier.weight(1f))
-                Switch(checked = state.squareCanvas, onCheckedChange = vm::setSquare)
-            }
-        }
-        Text("Background", style = MaterialTheme.typography.titleMedium)
-        BackgroundPicker(
-            selected = state.background,
-            photoThumb = state.backgroundPhoto,
-            onSelect = vm::setBackground,
-            onChoosePhoto = onChoosePhoto,
-            onBlurChange = vm::setBackgroundBlur,
-            enabled = !state.isRemovingBackground,
-            busy = state.isPreparingBackground,
+private fun LabeledSlider(
+    label: String,
+    value: Float,
+    onChange: (Float) -> Unit,
+    range: ClosedFloatingPointRange<Float> = -1f..1f,
+    enabled: Boolean = true,
+) {
+    Column {
+        Text(label, style = MaterialTheme.typography.titleSmall)
+        Slider(
+            value = value,
+            onValueChange = onChange,
+            valueRange = range,
+            enabled = enabled,
+            colors = SliderDefaults.colors(thumbColor = Studio.Ink, activeTrackColor = Studio.Ink, inactiveTrackColor = Studio.Line),
         )
-        if (!state.useCutout && state.canvasAspect == null) {
-            Text(
-                "Turn on Remove background or Square to see the background.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun AdjustmentControls(state: EditorState, vm: EditorViewModel) {
-    Column {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Adjust", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            TextButton(onClick = vm::resetAdjustments, enabled = !state.adjustments.slidersNeutral) { Text("Reset") }
-        }
-        LightStrengthPicker(state.lightStrength, enabled = true, onSelect = vm::setLightStrength)
-        LabeledSlider("Brightness", state.adjustments.brightness, vm::setBrightness)
-        LabeledSlider("Contrast", state.adjustments.contrast, vm::setContrast)
-    }
-}
-
-@Composable
-private fun LabeledSlider(label: String, value: Float, onChange: (Float) -> Unit) {
-    Column {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Slider(value = value, onValueChange = onChange, valueRange = -1f..1f)
     }
 }
