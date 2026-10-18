@@ -30,7 +30,12 @@ data class RenderSpec(
     val outWidth: Int? = null,
     val outHeight: Int? = null,
     val watermark: String?,           // null for premium
+    /** Flaw circles, in [content]'s pixel coordinates. */
+    val marks: List<RingMark> = emptyList(),
 )
+
+/** A circle around a flaw: centre and radius in content pixels. */
+data class RingMark(val x: Float, val y: Float, val r: Float)
 
 object ImageRenderer {
 
@@ -63,7 +68,13 @@ object ImageRenderer {
         }
         canvas.drawBitmap(src, null, RectF(layout.left, layout.top, layout.left + layout.drawWidth, layout.top + layout.drawHeight), paint)
 
-        // 4. Watermark for free exports.
+        // 4. Flaw circles, on top of the product.
+        if (spec.marks.isNotEmpty()) {
+            val s = layout.drawWidth / src.width
+            spec.marks.forEach { m -> drawRing(canvas, layout.left + m.x * s, layout.top + m.y * s, m.r * s) }
+        }
+
+        // 5. Watermark for free exports.
         spec.watermark?.let { drawWatermark(canvas, it, w, h) }
 
         out
@@ -98,6 +109,21 @@ object ImageRenderer {
             }
         }
     }
+
+    /** Red ring with a thin white edge, so it shows on dark and light items alike. Shared with the preview. */
+    fun drawRing(canvas: Canvas, x: Float, y: Float, r: Float) {
+        val width = max(3f, r * RING_WIDTH)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+        paint.color = 0xFFFFFFFF.toInt()
+        paint.strokeWidth = width * 1.6f
+        canvas.drawCircle(x, y, r, paint)
+        paint.color = RING_COLOR
+        paint.strokeWidth = width
+        canvas.drawCircle(x, y, r, paint)
+    }
+
+    const val RING_COLOR = 0xFFE53935.toInt()
+    const val RING_WIDTH = 0.12f
 
     /**
      * Free exports: the name in large letters, diagonally across the middle where the product sits, so it

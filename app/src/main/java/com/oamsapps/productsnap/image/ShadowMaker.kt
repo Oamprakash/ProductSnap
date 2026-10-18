@@ -25,8 +25,11 @@ object ShadowMaker {
      */
     private const val SHADOW_DOWNSCALE = 4
 
-    fun apply(cutout: Bitmap): Bitmap {
-        val bounds = Cropper.subjectBounds(cutout) ?: return cutout
+    fun apply(cutout: Bitmap): Bitmap = applyWithMargin(cutout).first
+
+    /** The shadowed bitmap and how far the cutout was moved right and down in it (0 when unchanged). */
+    fun applyWithMargin(cutout: Bitmap): Pair<Bitmap, Int> {
+        val bounds = Cropper.subjectBounds(cutout) ?: return cutout to 0
         val size = max(bounds.width(), bounds.height()).toFloat()
         val blur = max(2f, size * BLUR_FRACTION)
         val drop = size * DROP_FRACTION
@@ -48,7 +51,7 @@ object ShadowMaker {
         shadow.bitmap.recycle()
 
         canvas.drawBitmap(cutout, margin.toFloat(), margin.toFloat(), Paint(Paint.FILTER_BITMAP_FLAG))
-        return out
+        return out to margin
     }
 
     private class SmallShadow(val bitmap: Bitmap, val subjectW: Int, val subjectH: Int, val pad: Int)

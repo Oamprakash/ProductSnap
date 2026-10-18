@@ -9,6 +9,8 @@ import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.oamsapps.productsnap.billing.FreeAllowance
+import com.oamsapps.productsnap.telemetry.Telemetry
+import com.oamsapps.productsnap.telemetry.kind
 import com.oamsapps.productsnap.image.BackgroundRemover
 import com.oamsapps.productsnap.image.BitmapLoader
 import com.oamsapps.productsnap.image.Cropper
@@ -107,7 +109,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                 // Stage 4: encode and save.
                 for (r in rendered) {
                     val outcome = save(r, settings, clock)
-                    record(r.item, outcome.status, outcome.reason, start.premium)
+                    record(r.item, outcome.status, outcome.reason, start.premium, outcome.savedUri)
                 }
             }
         } catch (e: CancellationException) {
@@ -125,13 +127,31 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         val summary = clock.summary(queue.size)
         Log.i(TAG, summary)
         val done = store.update { it.copy(timing = summary) }
+        val ran = done.items.filter { i -> queue.any { it.id == i.id } }
+        Telemetry.event(
+            "batch_finished",
+            "photos" to queue.size,
+            "saved" to ran.count { it.status == StoredStatus.SAVED },
+            "needs_look" to ran.count { it.status == StoredStatus.NEEDS_LOOK },
+            "no_subject" to ran.count { it.status == StoredStatus.NO_SUBJECT },
+            "failed" to ran.count { it.status == StoredStatus.FAILED },
+            "warned" to ran.count { it.warnings.isNotEmpty() },
+            "seconds" to clock.elapsedSeconds(),
+            "marketplace" to (settings.marketplace?.name ?: "any"),
+            "background" to settings.background.kind,
+            "premium" to start.premium,
+        )
         publish()
         BatchNotifications.showFinished(applicationContext, done.savedCount, done.items.size)
         return Result.success()
     }
 
-    private suspend fun record(item: StoredItem, status: StoredStatus, reason: String?, premium: Boolean) {
-        val job = store.update { it.withStatus(item.id, status, reason) }
+    private suspend fun record(item: StoredItem, status: StoredStatus, reason: String?, premium: Boolean, savedUri: String? = null) {
+        val job = store.update { j ->
+            j.withStatus(item.id, status, reason).let { u ->
+                if (savedUri == null) u else u.copy(items = u.items.map { if (it.id == item.id) it.copy(savedUri = savedUri) else it })
+            }
+        }
         if (status == StoredStatus.SAVED && !premium) FreeAllowance.markUsed(applicationContext)
         // Keep the copy when the user may want it back: to retry, to fix it in the editor, or to check a warning.
         val warned = job.items.firstOrNull { it.id == item.id }?.warnings?.isNotEmpty() == true
@@ -159,7 +179,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     private sealed interface StageResult
 
     /** Final status for a photo. */
-    private class Outcome(val status: StoredStatus, val reason: String? = null) : StageResult
+    private class Outcome(val status: StoredStatus, val reason: String? = null, val savedUri: String? = null) : StageResult
 
     /** A photo after stage 3: the finished image, owned by stage 4. */
     private class Rendered(val item: StoredItem, val bitmap: Bitmap) : StageResult
@@ -205,6 +225,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         is OutOfMemoryError -> Outcome(StoredStatus.FAILED, "Not enough memory for this photo")
         is Exception -> {
             Log.w(TAG, "Photo ${item.id} failed to load or segment", e)
+            Telemetry.nonFatal(e, "batch load/segment")
             Outcome(StoredStatus.FAILED, (e.message ?: "Unknown error").take(120))
         }
         else -> throw e
@@ -270,6 +291,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
             return Outcome(StoredStatus.FAILED, "Not enough memory for this photo")
         } catch (e: Exception) {
             Log.w(TAG, "Photo ${p.item.id} failed", e)
+            Telemetry.nonFatal(e, "batch finish")
             return Outcome(StoredStatus.FAILED, (e.message ?: "Unknown error").take(120))
         } finally {
             original?.recycle()
@@ -298,12 +320,15 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     /** Stage 4. Frees the rendered image. */
     private suspend fun save(r: Rendered, settings: ExportSettings, clock: RunClock): Outcome =
         try {
-            clock.time(RunClock.SAVE) { ImageSaver.saveToGallery(applicationContext, r.bitmap, transparent = settings.transparent, quality = settings.jpegQuality) }
-            Outcome(StoredStatus.SAVED)
+            val uri = clock.time(RunClock.SAVE) {
+                ImageSaver.saveToGallery(applicationContext, r.bitmap, transparent = settings.transparent, quality = settings.jpegQuality)
+            }
+            Outcome(StoredStatus.SAVED, savedUri = uri.toString())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Photo ${r.item.id} couldn't be saved", e)
+            Telemetry.nonFatal(e, "batch save")
             Outcome(StoredStatus.FAILED, (e.message ?: "Couldn't save").take(120))
         } finally {
             r.bitmap.recycle()
@@ -330,6 +355,8 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
 /** Adds up how long each step takes across a run (stages overlap, so steps run in parallel). */
 private class RunClock {
     private val started = SystemClock.elapsedRealtime()
+
+    fun elapsedSeconds() = (SystemClock.elapsedRealtime() - started) / 1000.0
     private val totals = ConcurrentHashMap<String, AtomicLong>()
     private val counts = ConcurrentHashMap<String, AtomicLong>()
 

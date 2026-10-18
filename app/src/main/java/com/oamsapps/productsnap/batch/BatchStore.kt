@@ -29,6 +29,8 @@ data class StoredItem(
     val reason: String? = null,
     /** [PhotoWarning] names found while processing; the photo is still saved, and its copy kept to open later. */
     val warnings: List<String> = emptyList(),
+    /** The saved photo in the gallery, for sharing. */
+    val savedUri: String? = null,
 )
 
 data class BatchSettings(
@@ -141,6 +143,7 @@ class BatchStore private constructor(context: Context) {
                     put("status", item.status.name)
                     item.reason?.let { put("reason", it) }
                     if (item.warnings.isNotEmpty()) put("warnings", JSONArray(item.warnings))
+                    item.savedUri?.let { put("savedUri", it) }
                 })
             }
         })
@@ -174,6 +177,7 @@ class BatchStore private constructor(context: Context) {
                 sourceUri = o.optString("sourceUri"),
                 status = runCatching { StoredStatus.valueOf(o.getString("status")) }.getOrDefault(StoredStatus.PENDING),
                 reason = if (o.has("reason")) o.getString("reason") else null,
+                savedUri = if (o.has("savedUri")) o.getString("savedUri") else null,
                 warnings = o.optJSONArray("warnings")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList(),
             )
         }

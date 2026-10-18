@@ -3,6 +3,7 @@ package com.oamsapps.productsnap.billing
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import com.oamsapps.productsnap.telemetry.Telemetry
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -59,6 +60,7 @@ fun PaywallSheet(onDismiss: () -> Unit) {
     val billing by Billing.state.collectAsStateWithLifecycle()
     val premium by PremiumManager.isPremium.collectAsStateWithLifecycle()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    LaunchedEffect(Unit) { Telemetry.event("paywall_shown", "premium" to premium) }
     val activity = LocalContext.current.findActivity()
     val uriHandler = LocalUriHandler.current
 
@@ -145,6 +147,21 @@ fun PaywallSheet(onDismiss: () -> Unit) {
 
             if (BuildConfig.DEBUG) {
                 TextButton(onClick = PremiumManager::debugUnlock) { Text("Unlock Premium (debug builds only)") }
+                // Crash reporting status and checks, so setup can be verified without adb.
+                var testSent by remember { mutableStateOf<String?>(null) }
+                Text(
+                    "Crash reports: ${Telemetry.status}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = {
+                    testSent = if (Telemetry.sendTestReport()) "Sent. Look under Non-fatals in Crashlytics in a few minutes." else "Reporting is off in this build."
+                }) { Text("Send a test report, no crash (debug builds only)") }
+                testSent?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                // Checks that Crashlytics catches real crashes: the report appears in the Firebase console after relaunch.
+                TextButton(onClick = { throw RuntimeException("Test crash from build ${BuildConfig.BUILD_ID}") }) {
+                    Text("Send a test crash (debug builds only)")
+                }
             }
         }
     }
