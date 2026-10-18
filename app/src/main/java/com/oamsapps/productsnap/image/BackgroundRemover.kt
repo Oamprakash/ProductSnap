@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.oamsapps.imaging.ImageIo
 import com.oamsapps.imaging.LightFix
+import com.oamsapps.imaging.PhotoCheck
 import com.oamsapps.imaging.ListingPhotoPipeline
 import com.oamsapps.imaging.MaskVerdict
 import com.oamsapps.imaging.MlKitSegmenter
@@ -21,6 +22,8 @@ class Removal(
     val verdict: MaskVerdict,
     /** Measured lighting fix for the item, applied at render time when the user has Auto light on. */
     val light: LightFix = LightFix.NONE,
+    /** The cutout runs along the photo's edge; worth a check (see [PhotoCheck]). */
+    val runsOffEdge: Boolean = false,
 ) {
     /** Something was found but the mask is unusable (garbled, or everything): worth a person's look. */
     val needsLook get() = verdict == MaskVerdict.CORRUPTED || verdict == MaskVerdict.FULL
@@ -73,7 +76,12 @@ class BackgroundRemover private constructor(context: Context) {
             } else {
                 Log.w(TAG, "No usable cutout: ${result.verdict}")
             }
-            Removal(result.cutout, result.verdict, result.light)
+            Removal(
+                result.cutout,
+                result.verdict,
+                result.light,
+                runsOffEdge = result.cutout != null && PhotoCheck.runsOffEdge(result.mask),
+            )
         } finally {
             s.full.recycle()
         }

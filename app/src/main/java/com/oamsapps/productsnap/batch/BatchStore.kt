@@ -25,6 +25,8 @@ data class StoredItem(
     val sourceUri: String,      // only used to skip duplicates when adding
     val status: StoredStatus = StoredStatus.PENDING,
     val reason: String? = null,
+    /** [PhotoWarning] names found while processing; the photo is still saved, and its copy kept to open later. */
+    val warnings: List<String> = emptyList(),
 )
 
 data class BatchSettings(
@@ -62,6 +64,9 @@ data class BatchJob(
 
     fun withStatus(id: Int, status: StoredStatus, reason: String? = null) =
         copy(items = items.map { if (it.id == id) it.copy(status = status, reason = reason) else it })
+
+    fun withWarning(id: Int, warning: String) =
+        copy(items = items.map { if (it.id == id && warning !in it.warnings) it.copy(warnings = it.warnings + warning) else it })
 }
 
 /**
@@ -129,6 +134,7 @@ class BatchStore private constructor(context: Context) {
                     put("sourceUri", item.sourceUri)
                     put("status", item.status.name)
                     item.reason?.let { put("reason", it) }
+                    if (item.warnings.isNotEmpty()) put("warnings", JSONArray(item.warnings))
                 })
             }
         })
@@ -159,6 +165,7 @@ class BatchStore private constructor(context: Context) {
                 sourceUri = o.optString("sourceUri"),
                 status = runCatching { StoredStatus.valueOf(o.getString("status")) }.getOrDefault(StoredStatus.PENDING),
                 reason = if (o.has("reason")) o.getString("reason") else null,
+                warnings = o.optJSONArray("warnings")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList(),
             )
         }
         return BatchJob(

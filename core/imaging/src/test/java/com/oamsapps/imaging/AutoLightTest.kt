@@ -21,9 +21,23 @@ class AutoLightTest {
         assertEquals(1f, f.exposure, 0.06f)
     }
 
-    @Test fun dimRoomIsLiftedButCapped() {
+    @Test fun veryDarkPhotoIsLiftedFurtherButCapped() {
+        // Brightest areas around 60 of 255: taken in too little light (like the test sweater shots at 66-78).
         val f = AutoLight.analyzePixels(scene(rgb(60, 60, 60), rgb(40, 40, 40)), item)
+        assertEquals(AutoLight.MAX_EXPOSURE_DIM, f.exposure, 1e-4f)
+    }
+
+    @Test fun moderatelyDarkPhotoKeepsTheNormalCap() {
+        // Brightest areas around 130: a dark scene, but exposed normally (like the earlier dark-on-dark shots).
+        val f = AutoLight.analyzePixels(scene(rgb(130, 130, 130), rgb(40, 40, 40)), item)
         assertEquals(AutoLight.MAX_EXPOSURE, f.exposure, 1e-4f)
+    }
+
+    @Test fun capRisesSmoothlyBetweenNormalAndVeryDark() {
+        assertEquals(AutoLight.MAX_EXPOSURE, AutoLight.exposureCap(AutoLight.DIM_START), 1e-4f)
+        assertEquals(AutoLight.MAX_EXPOSURE_DIM, AutoLight.exposureCap(AutoLight.DIM_FULL), 1e-4f)
+        val mid = AutoLight.exposureCap((AutoLight.DIM_START + AutoLight.DIM_FULL) / 2)
+        assertEquals((AutoLight.MAX_EXPOSURE + AutoLight.MAX_EXPOSURE_DIM) / 2, mid, 1e-4f)
     }
 
     @Test fun itemHighlightsLimitTheLift() {

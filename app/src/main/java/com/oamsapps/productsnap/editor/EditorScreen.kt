@@ -22,8 +22,10 @@ import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Healing
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
+import com.oamsapps.imaging.PhotoWarning
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -217,6 +219,7 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
 
             else ->
                 Column(content, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    state.warning?.let { WarningCard(it, onFix = vm::startRefine, onIgnore = vm::dismissWarning) }
                     Preview(state)
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -396,6 +399,34 @@ private fun EraseControls(state: EditorState, vm: EditorViewModel) {
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(if (busy) "Erasing…" else "Erase")
+        }
+    }
+}
+
+/** A tip about the photo, with a way to act on it or carry on regardless. */
+@Composable
+private fun WarningCard(warning: PhotoWarning, onFix: () -> Unit, onIgnore: () -> Unit) {
+    val (title, body) = when (warning) {
+        PhotoWarning.TOO_DARK -> "This photo is very dark" to
+            "The cutout may miss parts of the item or take in some background. For the best result, retake it near a window or on a lighter surface."
+        PhotoWarning.RUNS_OFF_EDGE -> "Check the edges of the cutout" to
+            "The item runs off the edge of the photo, so the cutout may include background there. Fix it with the brush, or retake with space around the item."
+    }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.WarningAmber, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                Spacer(Modifier.width(8.dp))
+                Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
+            }
+            Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                if (warning == PhotoWarning.RUNS_OFF_EDGE) TextButton(onClick = onFix) { Text("Fix cutout") }
+                TextButton(onClick = onIgnore) { Text(if (warning == PhotoWarning.TOO_DARK) "Use anyway" else "Ignore") }
+            }
         }
     }
 }

@@ -9,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import com.oamsapps.imaging.BrushStroke
 import com.oamsapps.imaging.CutoutBrush
 import com.oamsapps.imaging.LightFix
+import com.oamsapps.imaging.PhotoCheck
+import com.oamsapps.imaging.PhotoWarning
 import com.oamsapps.productsnap.billing.PremiumManager
 import com.oamsapps.productsnap.billing.FreeAllowance
 import com.oamsapps.productsnap.image.Adjustments
@@ -71,6 +73,8 @@ data class EditorState(
     val eraseStrokes: List<EraseStroke> = emptyList(),
     val brushSizeDp: Float = 28f,
     val isApplyingErase: Boolean = false,
+    /** A tip about this photo (too dark, cutout runs off the edge); the user can act on it or ignore it. */
+    val warning: PhotoWarning? = null,
     /** Set when a save needs Premium; the screen opens the paywall and clears it. */
     val paywallRequested: Boolean = false,
     // Touch up cutout: hand fixes to what background removal kept
@@ -133,6 +137,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(isLoading = true, message = null) }
         runCatching { BitmapLoader.load(getApplication(), uri) }
             .onSuccess { bmp ->
+                val dark = runCatching { withContext(Dispatchers.Default) { PhotoCheck.isTooDark(bmp) } }.getOrDefault(false)
                 // Keep the user's look (background, canvas, adjustments, brush) across photos.
                 _state.update { s ->
                     EditorState(
@@ -144,6 +149,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                         autoLight = s.autoLight,
                         brushSizeDp = s.brushSizeDp,
                         shadow = s.shadow,
+                        warning = if (dark) PhotoWarning.TOO_DARK else null,
                     )
                 }
             }
@@ -168,7 +174,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                             message = if (removal.needsLook) "The cutout came out wrong on this photo. Try one with a plainer background, or keep the original."
                             else "No product found. Try a photo with a clear subject.",
                         )
-                        else it.copy(cutout = cut, light = removal.light, useCutout = true, isRemovingBackground = false)
+                        else it.copy(
+                            cutout = cut,
+                            light = removal.light,
+                            useCutout = true,
+                            isRemovingBackground = false,
+                            warning = if (removal.runsOffEdge) PhotoWarning.RUNS_OFF_EDGE else it.warning,
+                        )
                     }
                 }
                 .onFailure {
@@ -180,6 +192,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun showOriginal() = _state.update { it.copy(useCutout = false) }
+    fun dismissWarning() = _state.update { it.copy(warning = null) }
     fun setShadow(on: Boolean) = _state.update { it.copy(shadow = on) }
     // ---------- Background swap ----------
 
@@ -428,6 +441,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     refineBase = null,
                     refinePreview = null,
                     refineStrokes = emptyList(),
+                    // The edges have now been looked at by hand.
+                    warning = if (it.warning == PhotoWarning.RUNS_OFF_EDGE) null else it.warning,
                     history = (it.history + Snapshot(original, s.cutout)).takeLast(MAX_UNDO),
                 )
             }

@@ -19,6 +19,8 @@ import com.oamsapps.productsnap.image.ShadowMaker
 import com.oamsapps.productsnap.image.background.BackgroundPhotos
 import com.oamsapps.productsnap.image.background.BackgroundStyle
 import com.oamsapps.imaging.LightFix
+import com.oamsapps.imaging.PhotoCheck
+import com.oamsapps.imaging.PhotoWarning
 import com.oamsapps.imaging.SegmentInput
 import com.oamsapps.imaging.Segmented
 import kotlinx.coroutines.CancellationException
@@ -131,8 +133,9 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     private suspend fun record(item: StoredItem, status: StoredStatus, reason: String?, premium: Boolean) {
         val job = store.update { it.withStatus(item.id, status, reason) }
         if (status == StoredStatus.SAVED && !premium) FreeAllowance.markUsed(applicationContext)
-        // Keep the copy when the user may want it back: to retry, or to fix it in the editor.
-        if (status == StoredStatus.SAVED) File(item.inputPath).delete()
+        // Keep the copy when the user may want it back: to retry, to fix it in the editor, or to check a warning.
+        val warned = job.items.firstOrNull { it.id == item.id }?.warnings?.isNotEmpty() == true
+        if (status == StoredStatus.SAVED && !warned) File(item.inputPath).delete()
         showProgress(job)
         publish()
     }
@@ -166,6 +169,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         return try {
             clock.time(RunClock.LOAD) {
                 original = BitmapLoader.load(File(item.inputPath), maxEdge = settings.maxEdge)
+                if (PhotoCheck.isTooDark(original!!)) store.update { it.withWarning(item.id, PhotoWarning.TOO_DARK.name) }
                 if (settings.removeBackground) {
                     // The input holds its own normalized copy, so the decoded photo can go now.
                     val input = remover.prepareInput(original!!)
@@ -225,7 +229,11 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
             val uncropped = if (p.segmented != null) {
                 val removal = clock.time(RunClock.CUTOUT) { remover.finish(p.segmented) }
                 when {
-                    removal.cutout != null -> removal.cutout.also { cutout = it; light = removal.light }
+                    removal.cutout != null -> removal.cutout.also {
+                        cutout = it
+                        light = removal.light
+                        if (removal.runsOffEdge) store.update { j -> j.withWarning(p.item.id, PhotoWarning.RUNS_OFF_EDGE.name) }
+                    }
                     removal.needsLook -> return Outcome(StoredStatus.NEEDS_LOOK)
                     else -> return Outcome(StoredStatus.NO_SUBJECT)
                 }
