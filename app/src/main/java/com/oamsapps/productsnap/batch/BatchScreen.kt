@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,8 +33,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.oamsapps.imaging.PhotoWarning
 import com.oamsapps.productsnap.billing.PremiumManager
 import com.oamsapps.productsnap.editor.BackgroundPicker
+import com.oamsapps.productsnap.editor.LightStrengthPicker
 import com.oamsapps.productsnap.image.BatchCrop
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -158,6 +161,7 @@ private fun SettingsCard(state: BatchState, vm: BatchViewModel, onChoosePhoto: (
             SettingSwitch("Remove background", state.removeBackground, enabled, vm::setRemoveBackground)
             if (state.removeBackground) {
                 SettingSwitch("Shadow under product", state.shadow, enabled, vm::setShadow)
+                LightStrengthPicker(state.lightStrength, enabled, vm::setLightStrength)
             }
             SettingSwitch("Square for marketplaces", state.squareCanvas, enabled, vm::setSquare)
             Text("Background", style = MaterialTheme.typography.bodyLarge)
@@ -171,7 +175,7 @@ private fun SettingsCard(state: BatchState, vm: BatchViewModel, onChoosePhoto: (
                 busy = state.isPreparingBackground,
             )
             CropChips(state, enabled, vm::setCrop)
-            if (!state.adjustments.isNeutral) {
+            if (!state.adjustments.slidersNeutral) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         "Brightness and contrast from the editor",
@@ -302,7 +306,7 @@ private fun BatchRow(index: Int, item: BatchItem, canRemove: Boolean, onRemove: 
         Column(Modifier.weight(1f)) {
             Text("Photo ${index + 1}", style = MaterialTheme.typography.bodyLarge)
             Text(
-                statusLabel(item.status),
+                statusLabel(item.status, item.warnings),
                 style = MaterialTheme.typography.bodySmall,
                 color = if (item.status is ItemStatus.Failed || item.status == ItemStatus.NoSubject || item.status == ItemStatus.NeedsLook)
                     MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -310,7 +314,11 @@ private fun BatchRow(index: Int, item: BatchItem, canRemove: Boolean, onRemove: 
         }
         when (item.status) {
             ItemStatus.Working -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-            ItemStatus.Saved -> Icon(Icons.Default.CheckCircle, "Saved", tint = MaterialTheme.colorScheme.primary)
+            ItemStatus.Saved -> if (item.warnings.isEmpty()) {
+                Icon(Icons.Default.CheckCircle, "Saved", tint = MaterialTheme.colorScheme.primary)
+            } else {
+                Icon(Icons.Default.WarningAmber, "Saved, worth a check", tint = MaterialTheme.colorScheme.tertiary)
+            }
             ItemStatus.NoSubject, ItemStatus.NeedsLook, is ItemStatus.Failed ->
                 Icon(Icons.Default.ErrorOutline, "Not saved", tint = MaterialTheme.colorScheme.error)
             ItemStatus.Pending -> if (canRemove) {
@@ -320,10 +328,14 @@ private fun BatchRow(index: Int, item: BatchItem, canRemove: Boolean, onRemove: 
     }
 }
 
-private fun statusLabel(status: ItemStatus) = when (status) {
+private fun statusLabel(status: ItemStatus, warnings: List<PhotoWarning>) = when (status) {
     ItemStatus.Pending -> "Ready"
     ItemStatus.Working -> "Saving…"
-    ItemStatus.Saved -> "Saved"
+    ItemStatus.Saved -> when {
+        PhotoWarning.RUNS_OFF_EDGE in warnings -> "Saved. The cutout may include background at the photo's edge. Tap to check"
+        PhotoWarning.TOO_DARK in warnings -> "Saved. Very dark photo, so the cutout may be rough. Tap to check"
+        else -> "Saved"
+    }
     ItemStatus.NoSubject -> "No product found. Tap to open in the editor"
     ItemStatus.NeedsLook -> "Needs a look: the cutout came out wrong. Tap to fix in the editor"
     is ItemStatus.Failed -> "Not saved: ${status.reason}"

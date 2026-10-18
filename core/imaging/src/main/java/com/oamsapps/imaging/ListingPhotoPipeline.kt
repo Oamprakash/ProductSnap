@@ -41,6 +41,11 @@ class ListingPhotoPipeline(
     private val segmentLongEdge: Int = PipelineDefaults.SEGMENT_LONG_EDGE,
     /** Honest auto-brighten on the cutout. Off when the caller has its own lighting controls. */
     private val autoLight: Boolean = true,
+    /**
+     * Measure the lighting fix even when not applying it, so a caller can apply it at render time (where the user
+     * can turn it off) instead of baking it into the cutout. Cheap: it runs on the segmentation-size image.
+     */
+    private val measureLight: Boolean = autoLight,
 ) {
 
     /**
@@ -75,7 +80,7 @@ class ListingPhotoPipeline(
         val t1 = SystemClock.elapsedRealtime()
         val cut = Compositor.cutout(full, clean)
         val t2 = SystemClock.elapsedRealtime()
-        val light = if (autoLight) AutoLight.analyze(small, clean) else LightFix.NONE
+        val light = if (autoLight || measureLight) AutoLight.analyze(small, clean) else LightFix.NONE
         val lit = if (autoLight) AutoLight.apply(cut.bitmap, light).also { cut.bitmap.recycle() } else cut.bitmap
         val t3 = SystemClock.elapsedRealtime()
         return ProcessedPhoto(MaskVerdict.OK, lit, clean, light, cut.path, seg.subjectBoxShares,

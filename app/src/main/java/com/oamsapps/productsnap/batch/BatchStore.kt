@@ -4,6 +4,7 @@ import android.content.Context
 import com.oamsapps.productsnap.image.Adjustments
 import com.oamsapps.productsnap.image.BatchCrop
 import com.oamsapps.productsnap.image.ExportSettings
+import com.oamsapps.productsnap.image.LightStrength
 import com.oamsapps.productsnap.image.background.BackgroundPresets
 import com.oamsapps.productsnap.image.background.BackgroundStyle
 import com.oamsapps.productsnap.image.background.backgroundFromJson
@@ -25,6 +26,8 @@ data class StoredItem(
     val sourceUri: String,      // only used to skip duplicates when adding
     val status: StoredStatus = StoredStatus.PENDING,
     val reason: String? = null,
+    /** [PhotoWarning] names found while processing; the photo is still saved, and its copy kept to open later. */
+    val warnings: List<String> = emptyList(),
 )
 
 data class BatchSettings(
@@ -34,6 +37,8 @@ data class BatchSettings(
     val adjustments: Adjustments = Adjustments(),
     val crop: BatchCrop = BatchCrop.NONE,
     val shadow: Boolean = true,
+    /** Auto light level for each photo's measured light fix (only with background removal). */
+    val lightStrength: LightStrength = LightStrength.DEFAULT,
 ) {
     fun toExport(premium: Boolean) = ExportSettings(
         removeBackground = removeBackground,
@@ -43,6 +48,7 @@ data class BatchSettings(
         premium = premium,
         crop = crop,
         shadow = shadow,
+        lightStrength = lightStrength,
     )
 }
 
@@ -59,6 +65,9 @@ data class BatchJob(
 
     fun withStatus(id: Int, status: StoredStatus, reason: String? = null) =
         copy(items = items.map { if (it.id == id) it.copy(status = status, reason = reason) else it })
+
+    fun withWarning(id: Int, warning: String) =
+        copy(items = items.map { if (it.id == id && warning !in it.warnings) it.copy(warnings = it.warnings + warning) else it })
 }
 
 /**
@@ -116,6 +125,7 @@ class BatchStore private constructor(context: Context) {
             put("contrast", job.settings.adjustments.contrast.toDouble())
             put("crop", job.settings.crop.name)
             put("shadow", job.settings.shadow)
+            put("lightStrength", job.settings.lightStrength.name)
         })
         put("items", JSONArray().apply {
             job.items.forEach { item ->
@@ -125,6 +135,7 @@ class BatchStore private constructor(context: Context) {
                     put("sourceUri", item.sourceUri)
                     put("status", item.status.name)
                     item.reason?.let { put("reason", it) }
+                    if (item.warnings.isNotEmpty()) put("warnings", JSONArray(item.warnings))
                 })
             }
         })
@@ -144,6 +155,9 @@ class BatchStore private constructor(context: Context) {
             ),
             crop = runCatching { BatchCrop.valueOf(s.optString("crop", "NONE")) }.getOrDefault(BatchCrop.NONE),
             shadow = s.optBoolean("shadow", true),
+            // Builds before the levels had an on/off switch.
+            lightStrength = if (s.has("lightStrength")) LightStrength.fromName(s.getString("lightStrength"))
+                else if (!s.optBoolean("autoLight", true)) LightStrength.OFF else LightStrength.DEFAULT,
         )
         val arr = json.getJSONArray("items")
         val items = (0 until arr.length()).map { i ->
@@ -154,6 +168,7 @@ class BatchStore private constructor(context: Context) {
                 sourceUri = o.optString("sourceUri"),
                 status = runCatching { StoredStatus.valueOf(o.getString("status")) }.getOrDefault(StoredStatus.PENDING),
                 reason = if (o.has("reason")) o.getString("reason") else null,
+                warnings = o.optJSONArray("warnings")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList(),
             )
         }
         return BatchJob(

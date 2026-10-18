@@ -18,6 +18,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import com.oamsapps.productsnap.image.LightStrength
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -189,3 +192,30 @@ fun Modifier.backgroundStyle(style: BackgroundStyle, photo: ImageBitmap?, shape:
 /** Simple transparency hint behind transparent backgrounds. */
 fun Modifier.checkerboardIf(enabled: Boolean): Modifier =
     if (!enabled) this else this.background(Color(0xFFE0E0E0))
+
+/** Auto light level, shared by the editor and batch settings. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LightStrengthPicker(selected: LightStrength, enabled: Boolean, onSelect: (LightStrength) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Auto light", style = MaterialTheme.typography.bodyMedium)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+        ) {
+            LightStrength.entries.forEach { s ->
+                FilterChip(selected = s == selected, onClick = { onSelect(s) }, enabled = enabled, label = { Text(s.label) })
+            }
+        }
+        Text(
+            when (selected) {
+                LightStrength.OFF -> "The photo's own lighting, as shot."
+                LightStrength.GENTLE -> "Fixes a dim or tinted photo, up to 1.6× brighter."
+                LightStrength.NORMAL -> "Fixes a dim or tinted photo. Very dark photos go up to 2.2× brighter."
+                LightStrength.STRONG -> "Fixes a dim or tinted photo. Very dark photos go up to 2.8× brighter; may look grainy."
+            } + if (selected != LightStrength.OFF) " The item's own colours stay true." else "",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}

@@ -2,6 +2,8 @@ package com.oamsapps.productsnap.batch
 
 import android.util.Log
 import com.oamsapps.productsnap.image.BackgroundRemover
+import com.oamsapps.productsnap.image.LightStrength
+import com.oamsapps.imaging.PhotoWarning
 import android.app.Application
 import android.graphics.Bitmap
 import android.media.ThumbnailUtils
@@ -44,8 +46,9 @@ data class BatchItem(
     val id: Int,
     val thumbnail: Bitmap? = null,
     val status: ItemStatus = ItemStatus.Pending,
-    /** The photo's private copy, when it can be opened in the editor (not saved, copy still kept). */
+    /** The photo's private copy, when it can be opened in the editor (not saved, or saved with a warning). */
     val openable: File? = null,
+    val warnings: List<PhotoWarning> = emptyList(),
 )
 
 data class BatchState(
@@ -58,6 +61,7 @@ data class BatchState(
     val adjustments: Adjustments = Adjustments(),
     val crop: BatchCrop = BatchCrop.NONE,
     val shadow: Boolean = true,
+    val lightStrength: LightStrength = LightStrength.DEFAULT,
     val isRunning: Boolean = false,
     val isImporting: Boolean = false,
     val message: String? = null,
@@ -124,6 +128,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
                     squareCanvas = editor.squareCanvas,
                     adjustments = editor.adjustments,
                     shadow = editor.shadow,
+                    lightStrength = editor.lightStrength,
                 )
             )
         }
@@ -213,6 +218,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
     fun clearAdjustments() = editSettings { it.copy(adjustments = Adjustments()) }
     fun setCrop(crop: BatchCrop) = editSettings { it.copy(crop = crop) }
     fun setShadow(on: Boolean) = editSettings { it.copy(shadow = on) }
+    fun setLightStrength(strength: LightStrength) = editSettings { it.copy(lightStrength = strength) }
     fun clearMessage() = _state.update { it.copy(message = null, messageOffersUpgrade = false) }
 
     private fun editSettings(change: (BatchSettings) -> BatchSettings) {
@@ -264,8 +270,10 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
             s.copy(
                 items = job.items.map { item ->
                     val status = item.toItemStatus(running)
-                    val canOpen = status == ItemStatus.NeedsLook || status == ItemStatus.NoSubject || status is ItemStatus.Failed
-                    BatchItem(item.id, thumbnails[item.id], status, File(item.inputPath).takeIf { canOpen && it.exists() })
+                    val warnings = item.warnings.mapNotNull { w -> runCatching { PhotoWarning.valueOf(w) }.getOrNull() }
+                    val canOpen = status == ItemStatus.NeedsLook || status == ItemStatus.NoSubject || status is ItemStatus.Failed ||
+                        (status == ItemStatus.Saved && warnings.isNotEmpty())
+                    BatchItem(item.id, thumbnails[item.id], status, File(item.inputPath).takeIf { canOpen && it.exists() }, warnings)
                 },
                 removeBackground = job.settings.removeBackground,
                 background = job.settings.background,
@@ -273,6 +281,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
                 adjustments = job.settings.adjustments,
                 crop = job.settings.crop,
                 shadow = job.settings.shadow,
+                lightStrength = job.settings.lightStrength,
                 isRunning = running,
                 timing = job.timing,
             )

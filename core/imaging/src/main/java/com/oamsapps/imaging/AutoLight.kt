@@ -13,7 +13,8 @@ import kotlin.math.min
  * the real item:
  *  - Exposure fixes the photo, not the item: the gain comes from the whole scene's brightest areas (a white
  *    wall already near white means the photo isn't underexposed, so a black item stays black), never exceeds
- *    what the item's own highlights allow, and is capped at [AutoLight.MAX_EXPOSURE]. Measuring the item alone
+ *    what the item's own highlights allow, and is capped at [AutoLight.MAX_EXPOSURE] (up to
+ *    [AutoLight.MAX_EXPOSURE_DIM] for a photo taken in too little light; see [AutoLight.exposureCap]). Measuring the item alone
  *    turned black jeans charcoal grey in testing.
  *  - Colour-cast correction only runs when enough of the item is neutral to judge the light from, and moves
  *    each channel at most [AutoLight.MAX_WB_SHIFT].
@@ -37,7 +38,20 @@ data class LightFix(
 
 object AutoLight {
 
+    /** Cap for a normally exposed photo. */
     const val MAX_EXPOSURE = 1.6f
+    /**
+     * Cap for a clearly underexposed photo: one where even its brightest areas are dark. In a dim room the phone
+     * runs out of exposure, and testing showed shots 3× too dark (brightest areas around 70 of 255, where normal
+     * shots reach 170+) that the 1.6× cap barely helped.
+     */
+    const val MAX_EXPOSURE_DIM = 2.8f
+    /** Default cap for very dark photos: on device 2.8× looked too strong, 2.2× right. The app lets users pick. */
+    const val DEFAULT_DIM_CAP = 2.2f
+    /** The scene's 99th-percentile brightness at or above which a photo counts as normally exposed... */
+    const val DIM_START = 120f
+    /** ...and at or below which it gets the full dim cap; in between, the cap rises linearly. */
+    const val DIM_FULL = 80f
     const val TARGET_WHITE = 240f
     const val MAX_WB_SHIFT = 0.15f
     const val MIN_NEUTRAL_SHARE = 0.02f
@@ -127,8 +141,28 @@ object AutoLight {
         val itemP99 = percentile(itemHist, itemCount, 0.99f).toFloat() * wbMax
         val sceneGain = if (sceneP99 <= 1f) 1f else TARGET_WHITE / sceneP99
         val itemGain = if (itemP99 <= 1f) 1f else TARGET_WHITE / itemP99
-        val exposure = min(sceneGain, itemGain).coerceIn(1f, MAX_EXPOSURE)
+        val exposure = min(sceneGain, itemGain).coerceIn(1f, exposureCap(sceneP99))
         return LightFix(exposure, sceneGain, itemGain, gR, gG, gB, wb, neutralShare)
+    }
+
+    /**
+     * How far a photo may be brightened. A dark item in a normally lit room keeps the 1.6× cap (more would turn it
+     * grey); only a photo whose brightest areas are themselves dark, i.e. taken in too little light, may go further.
+     */
+    fun exposureCap(sceneP99: Float, dimCap: Float = DEFAULT_DIM_CAP): Float {
+        val top = dimCap.coerceIn(MAX_EXPOSURE, MAX_EXPOSURE_DIM)
+        val t = ((DIM_START - sceneP99) / (DIM_START - DIM_FULL)).coerceIn(0f, 1f)
+        return MAX_EXPOSURE + t * (top - MAX_EXPOSURE)
+    }
+
+    /**
+     * The same measurement with another cap for very dark photos ([MAX_EXPOSURE] to [MAX_EXPOSURE_DIM]), so the
+     * strength can change without measuring again. Normally exposed photos are unaffected.
+     */
+    fun withDimCap(f: LightFix, dimCap: Float): LightFix {
+        if (f == LightFix.NONE) return f
+        val sceneP99 = TARGET_WHITE / f.sceneGain
+        return f.copy(exposure = min(f.sceneGain, f.itemGain).coerceIn(1f, exposureCap(sceneP99, dimCap)))
     }
 
     /** Applies the gains natively; alpha is untouched, values clip at 255. */
