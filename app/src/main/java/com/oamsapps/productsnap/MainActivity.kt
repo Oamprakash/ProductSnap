@@ -8,47 +8,102 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import com.oamsapps.productsnap.billing.Billing
-import com.oamsapps.productsnap.billing.PaywallSheet
+import androidx.compose.ui.Modifier
 import androidx.core.content.IntentCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oamsapps.productsnap.batch.BatchScreen
 import com.oamsapps.productsnap.batch.BatchViewModel
+import com.oamsapps.productsnap.billing.Billing
+import com.oamsapps.productsnap.billing.PaywallSheet
 import com.oamsapps.productsnap.editor.EditorScreen
 import com.oamsapps.productsnap.editor.EditorViewModel
+import com.oamsapps.productsnap.home.HomeScreen
+import com.oamsapps.productsnap.home.OnboardingScreen
+import com.oamsapps.productsnap.home.SellerPrefs
 import com.oamsapps.productsnap.ui.theme.ProductSnapTheme
+import com.oamsapps.productsnap.ui.theme.Studio
+
+private enum class Screen { Onboarding, Home, Editor, Batch }
 
 class MainActivity : ComponentActivity() {
 
     private val editorVm: EditorViewModel by viewModels()
     private val batchVm: BatchViewModel by viewModels()
 
-    // Simple two-screen navigation; swap for Navigation Compose when screens grow.
-    private val showBatch = mutableStateOf(false)
+    // Four screens and no deep stack; swap for Navigation Compose if that changes.
+    private val screen = mutableStateOf(Screen.Home)
+    /** Where back from the editor goes: batch when a batch photo was opened, otherwise home. */
+    private val editorReturn = mutableStateOf(Screen.Home)
     private val showPaywall = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        showBatch.value = savedInstanceState?.getBoolean(KEY_BATCH) ?: false
-        if (savedInstanceState == null) handleIntent(intent)
+        screen.value = savedInstanceState?.getString(KEY_SCREEN)?.let { name -> Screen.entries.firstOrNull { it.name == name } }
+            ?: if (SellerPrefs.seller.value.onboarded) Screen.Home else Screen.Onboarding
+        editorReturn.value = savedInstanceState?.getString(KEY_EDITOR_RETURN)?.let { name -> Screen.entries.firstOrNull { it.name == name } }
+            ?: Screen.Home
+        if (savedInstanceState == null) {
+            editorVm.setMarketplace(SellerPrefs.seller.value.primary)
+            handleIntent(intent)
+        }
 
         setContent {
             ProductSnapTheme {
+                val seller by SellerPrefs.seller.collectAsStateWithLifecycle()
                 val openPaywall = { showPaywall.value = true }
-                if (showBatch.value) {
-                    BackHandler { showBatch.value = false }
-                    BatchScreen(
-                        batchVm,
-                        onBack = { showBatch.value = false },
-                        onOpenPaywall = openPaywall,
-                        onOpenInEditor = { file ->
-                            showBatch.value = false
-                            editorVm.loadImage(Uri.fromFile(file), batchVm.state.value.settings)
-                        },
-                    )
-                } else {
-                    EditorScreen(editorVm, onOpenBatch = ::openBatch, onOpenPaywall = openPaywall)
+                val home = { screen.value = Screen.Home }
+                Box(Modifier.fillMaxSize().background(Studio.Paper)) {
+                    AnimatedContent(screen.value, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "screen") { current ->
+                        when (current) {
+                            Screen.Onboarding -> OnboardingScreen(
+                                initial = seller.markets,
+                                onDone = { markets ->
+                                    SellerPrefs.saveMarkets(this@MainActivity, markets)
+                                    editorVm.setMarketplace(SellerPrefs.seller.value.primary)
+                                    home()
+                                },
+                                onSkip = { SellerPrefs.saveMarkets(this@MainActivity, seller.markets); home() },
+                            )
+                            Screen.Home -> HomeScreen(
+                                onOpenPhoto = { uri -> openPhoto(uri) },
+                                onOpenBatch = {
+                                    editorVm.setMarketplace(seller.primary)
+                                    openBatch()
+                                },
+                                onOpenPaywall = openPaywall,
+                                onPrimaryChanged = { editorVm.setMarketplace(it) },
+                                onChangeMarkets = { screen.value = Screen.Onboarding },
+                            )
+                            Screen.Editor -> {
+                                val back = { screen.value = editorReturn.value }
+                                BackHandler { back() }
+                                EditorScreen(editorVm, onBack = back, onOpenBatch = ::openBatch, onOpenPaywall = openPaywall)
+                            }
+                            Screen.Batch -> {
+                                BackHandler { home() }
+                                BatchScreen(
+                                    batchVm,
+                                    onBack = home,
+                                    onOpenPaywall = openPaywall,
+                                    onOpenInEditor = { file ->
+                                        editorReturn.value = Screen.Batch
+                                        screen.value = Screen.Editor
+                                        editorVm.loadImage(Uri.fromFile(file), batchVm.state.value.settings)
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
                 if (showPaywall.value) {
                     PaywallSheet(onDismiss = { showPaywall.value = false })
@@ -65,7 +120,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putBoolean(KEY_BATCH, showBatch.value)
+        outState.putString(KEY_SCREEN, screen.value.name)
+        outState.putString(KEY_EDITOR_RETURN, editorReturn.value.name)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -73,28 +129,34 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
+    /** A new photo starts with the look for the seller's marketplace. */
+    private fun openPhoto(uri: Uri) {
+        editorVm.setMarketplace(SellerPrefs.seller.value.primary)
+        editorVm.loadImage(uri)
+        editorReturn.value = Screen.Home
+        screen.value = Screen.Editor
+    }
+
     private fun openBatch() {
         batchVm.configureFrom(editorVm.state.value)
-        showBatch.value = true
+        screen.value = Screen.Batch
     }
 
     private fun handleIntent(intent: Intent?) {
         if (intent == null) return
         // Tapped the batch progress / finished notification.
         if (intent.getBooleanExtra(EXTRA_OPEN_BATCH, false)) {
-            showBatch.value = true
+            screen.value = Screen.Batch
             return
         }
         when (intent.action) {
             Intent.ACTION_SEND -> {
-                IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)?.let {
-                    showBatch.value = false
-                    editorVm.loadImage(it)
-                }
+                IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)?.let(::openPhoto)
             }
             Intent.ACTION_SEND_MULTIPLE -> {
                 val uris = IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
                 if (!uris.isNullOrEmpty()) {
+                    editorVm.setMarketplace(SellerPrefs.seller.value.primary)
                     openBatch()
                     batchVm.addPhotos(uris)
                 }
@@ -104,6 +166,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_OPEN_BATCH = "open_batch"
-        private const val KEY_BATCH = "show_batch"
+        private const val KEY_SCREEN = "screen"
+        private const val KEY_EDITOR_RETURN = "editor_return"
     }
 }

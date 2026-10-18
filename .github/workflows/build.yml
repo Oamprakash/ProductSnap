@@ -39,7 +39,13 @@ jobs:
         run: gradle :core:imaging:testDebugUnitTest --stacktrace
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace
+        # Kotlin errors also go out as annotations, which are readable without the full log.
+        run: |
+          set -o pipefail
+          gradle :app:assembleDebug --stacktrace 2>&1 | tee build.log || {
+            grep -E '^e: ' build.log | head -30 | sed 's/^/::error::/'
+            exit 1
+          }
 
       # Run the image pipeline on a real Android graphics stack before publishing anything.
       - name: Enable KVM for the emulator
