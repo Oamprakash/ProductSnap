@@ -71,6 +71,8 @@ data class BatchState(
     val messageOffersUpgrade: Boolean = false,
     /** Per-step timing of the last run, for tuning batch speed. */
     val timing: String? = null,
+    /** Gallery entries of the saved photos, in batch order, for sharing. */
+    val savedUris: List<Uri> = emptyList(),
 ) {
     val savedCount get() = items.count { it.status == ItemStatus.Saved }
     val finishedCount get() = items.count { it.status != ItemStatus.Pending && it.status != ItemStatus.Working }
@@ -310,6 +312,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
                 marketplace = job.settings.marketplace,
                 isRunning = running,
                 timing = job.timing,
+                savedUris = job.items.filter { it.status == StoredStatus.SAVED }.mapNotNull { it.savedUri?.let(Uri::parse) },
             )
         }
         job.items.filter { !thumbnails.containsKey(it.id) }.forEach(::loadThumbnail)

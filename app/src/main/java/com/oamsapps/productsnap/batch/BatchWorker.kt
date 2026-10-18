@@ -107,7 +107,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                 // Stage 4: encode and save.
                 for (r in rendered) {
                     val outcome = save(r, settings, clock)
-                    record(r.item, outcome.status, outcome.reason, start.premium)
+                    record(r.item, outcome.status, outcome.reason, start.premium, outcome.savedUri)
                 }
             }
         } catch (e: CancellationException) {
@@ -130,8 +130,12 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         return Result.success()
     }
 
-    private suspend fun record(item: StoredItem, status: StoredStatus, reason: String?, premium: Boolean) {
-        val job = store.update { it.withStatus(item.id, status, reason) }
+    private suspend fun record(item: StoredItem, status: StoredStatus, reason: String?, premium: Boolean, savedUri: String? = null) {
+        val job = store.update { j ->
+            j.withStatus(item.id, status, reason).let { u ->
+                if (savedUri == null) u else u.copy(items = u.items.map { if (it.id == item.id) it.copy(savedUri = savedUri) else it })
+            }
+        }
         if (status == StoredStatus.SAVED && !premium) FreeAllowance.markUsed(applicationContext)
         // Keep the copy when the user may want it back: to retry, to fix it in the editor, or to check a warning.
         val warned = job.items.firstOrNull { it.id == item.id }?.warnings?.isNotEmpty() == true
@@ -159,7 +163,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     private sealed interface StageResult
 
     /** Final status for a photo. */
-    private class Outcome(val status: StoredStatus, val reason: String? = null) : StageResult
+    private class Outcome(val status: StoredStatus, val reason: String? = null, val savedUri: String? = null) : StageResult
 
     /** A photo after stage 3: the finished image, owned by stage 4. */
     private class Rendered(val item: StoredItem, val bitmap: Bitmap) : StageResult
@@ -298,8 +302,10 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     /** Stage 4. Frees the rendered image. */
     private suspend fun save(r: Rendered, settings: ExportSettings, clock: RunClock): Outcome =
         try {
-            clock.time(RunClock.SAVE) { ImageSaver.saveToGallery(applicationContext, r.bitmap, transparent = settings.transparent, quality = settings.jpegQuality) }
-            Outcome(StoredStatus.SAVED)
+            val uri = clock.time(RunClock.SAVE) {
+                ImageSaver.saveToGallery(applicationContext, r.bitmap, transparent = settings.transparent, quality = settings.jpegQuality)
+            }
+            Outcome(StoredStatus.SAVED, savedUri = uri.toString())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

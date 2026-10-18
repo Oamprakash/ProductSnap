@@ -62,7 +62,13 @@ object Cropper {
      * or the photo itself without a shape or a product. Returns [photo] itself when nothing is cut.
      */
     fun natural(photo: Bitmap, cutout: Bitmap?, aspect: Float?): Bitmap {
-        if (aspect == null) return photo
+        val r = naturalRect(photo, cutout, aspect) ?: return photo
+        return crop(photo, r)
+    }
+
+    /** The rect [natural] crops to, or null when it keeps the whole photo. */
+    fun naturalRect(photo: Bitmap, cutout: Bitmap?, aspect: Float?): Rect? {
+        if (aspect == null) return null
         var cx = photo.width / 2f
         var cy = photo.height / 2f
         if (cutout != null) {
@@ -72,7 +78,7 @@ object Cropper {
             }
         }
         val r = Framing.cropAround(photo.width, photo.height, aspect, cx, cy)
-        return crop(photo, Rect(r[0], r[1], r[2], r[3]))
+        return Rect(r[0], r[1], r[2], r[3])
     }
 
     /** Returns [bmp] itself when [r] covers it completely. */

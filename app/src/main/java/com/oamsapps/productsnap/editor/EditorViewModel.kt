@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.oamsapps.imaging.BrushStroke
 import com.oamsapps.imaging.CutoutBrush
+import com.oamsapps.imaging.FlawGeometry
 import com.oamsapps.imaging.LightFix
 import com.oamsapps.imaging.PhotoCheck
 import com.oamsapps.imaging.PhotoWarning
@@ -21,6 +22,8 @@ import com.oamsapps.productsnap.image.Cropper
 import com.oamsapps.productsnap.image.ExportSettings
 import com.oamsapps.productsnap.image.ImageRenderer
 import com.oamsapps.productsnap.image.ImageSaver
+import com.oamsapps.productsnap.image.RenderSpec
+import com.oamsapps.productsnap.image.RingMark
 import com.oamsapps.productsnap.image.LightStrength
 import com.oamsapps.productsnap.image.Marketplace
 import com.oamsapps.productsnap.image.ShadowMaker
@@ -56,6 +59,8 @@ data class EditorState(
     /** Soft shadow under the product; only shown around a cutout. */
     val shadow: Boolean = true,
     val cutoutWithShadow: Bitmap? = null,
+    /** How far the cutout sits right and down inside [cutoutWithShadow]. */
+    val shadowMargin: Int = 0,
     /** Slider values only; the per-photo light fix is kept apart in [light]. */
     val adjustments: Adjustments = Adjustments(),
     /** Auto light level; carried across photos. */
@@ -67,6 +72,18 @@ data class EditorState(
     val marketplace: Marketplace? = null,
     /** Natural background: the photo cropped to the canvas shape around the product. */
     val naturalDisplay: Bitmap? = null,
+    /** Where [naturalDisplay] was cut from the photo; null when it's the whole photo. */
+    val naturalRect: PixelRect? = null,
+    // Flaw marker
+    val isMarkingFlaws: Boolean = false,
+    /** Marked flaws on this photo, in [original]'s coordinates (0..1). */
+    val flaws: List<Flaw> = emptyList(),
+    /** Size for the next flaw circle, as a fraction of the photo's shorter side. */
+    val flawSize: Float = 0.06f,
+    /** Draw circles on the main photo. Off for eBay, which doesn't allow added artwork; close-ups are saved anyway. */
+    val circleFlaws: Boolean = true,
+    /** Saved photos to hand to the share sheet; the screen opens it and clears this. */
+    val shareUris: List<Uri>? = null,
     val isLoading: Boolean = false,
     val isRemovingBackground: Boolean = false,
     val isSaving: Boolean = false,
@@ -114,9 +131,25 @@ data class EditorState(
     /** What preview and export apply: the light fix (when on), then the sliders. */
     val effectiveAdjustments get() = if (lightApplies) adjustments.copy(light = lightStrength.apply(light)) else adjustments
     val canUndo get() = history.isNotEmpty()
-    val isInTool get() = isErasing || isCropping || isRefining
+    val isInTool get() = isErasing || isCropping || isRefining || isMarkingFlaws
+
+    /** Flaw circles in the coordinates of [content], the bitmap shown and exported (see [displayBitmap]). */
+    fun flawMarks(content: Bitmap?): List<RingMark> {
+        val o = original ?: return emptyList()
+        if (!circleFlaws || flaws.isEmpty() || content == null) return emptyList()
+        val (dx, dy) = when {
+            content === naturalDisplay && naturalRect != null -> -naturalRect.left to -naturalRect.top
+            content === cutoutWithShadow -> shadowMargin to shadowMargin
+            else -> 0 to 0
+        }
+        val side = minOf(o.width, o.height)
+        return flaws.map { RingMark(it.x * o.width + dx, it.y * o.height + dy, it.r * side) }
+    }
     val cropChanged get() = cropRect != FullFrame
 }
+
+/** A marked flaw: centre (0..1 of the photo) and circle radius (fraction of its shorter side). */
+data class Flaw(val x: Float, val y: Float, val r: Float)
 
 /** What undo goes back to. */
 data class Snapshot(val original: Bitmap, val cutout: Bitmap?)
@@ -135,11 +168,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _state.map { it.cutout to it.shadow }.distinctUntilChanged().collectLatest { (cut, on) ->
                 if (cut == null || !on) {
-                    _state.update { it.copy(cutoutWithShadow = null) }
+                    _state.update { it.copy(cutoutWithShadow = null, shadowMargin = 0) }
                     return@collectLatest
                 }
-                val shadowed = runCatching { withContext(Dispatchers.Default) { ShadowMaker.apply(cut) } }.getOrNull()
-                _state.update { if (it.cutout === cut) it.copy(cutoutWithShadow = shadowed) else it }
+                val shadowed = runCatching { withContext(Dispatchers.Default) { ShadowMaker.applyWithMargin(cut) } }.getOrNull()
+                _state.update {
+                    if (it.cutout === cut) it.copy(cutoutWithShadow = shadowed?.first, shadowMargin = shadowed?.second ?: 0) else it
+                }
             }
         }
         // Natural background: keep the framed photo in step with the photo, cutout and shape.
@@ -147,11 +182,16 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             _state.map { s -> if (s.isNatural && s.useCutout) Triple(s.original, s.cutout, s.canvasAspect) else null }
                 .distinctUntilChanged()
                 .collectLatest { key ->
-                    if (key == null) { _state.update { it.copy(naturalDisplay = null) }; return@collectLatest }
+                    if (key == null) { _state.update { it.copy(naturalDisplay = null, naturalRect = null) }; return@collectLatest }
                     val (photo, cut, aspect) = key
                     if (photo == null) return@collectLatest
-                    val framed = runCatching { withContext(Dispatchers.Default) { Cropper.natural(photo, cut, aspect) } }.getOrNull()
-                    _state.update { it.copy(naturalDisplay = framed) }
+                    val framed = runCatching {
+                        withContext(Dispatchers.Default) {
+                            val r = Cropper.naturalRect(photo, cut, aspect)
+                            (if (r == null) photo else Cropper.crop(photo, r)) to r
+                        }
+                    }.getOrNull()
+                    _state.update { it.copy(naturalDisplay = framed?.first, naturalRect = framed?.second) }
                 }
         }
     }
@@ -203,6 +243,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                         brushSizeDp = s.brushSizeDp,
                         shadow = s.shadow,
                         warning = if (dark) PhotoWarning.TOO_DARK else null,
+                        circleFlaws = s.marketplace != Marketplace.EBAY,
                     )
                 }
             }
@@ -291,7 +332,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     /** A marketplace sets the shape; Vinted also keeps the real background, the others a clean one. */
     fun setMarketplace(m: Marketplace?) {
-        _state.update { it.copy(marketplace = m) }
+        // eBay doesn't allow added artwork on photos; the flaw close-ups are separate photos, so they still go.
+        _state.update { it.copy(marketplace = m, circleFlaws = if (m == Marketplace.EBAY) false else it.circleFlaws) }
         val bg = _state.value.background
         when {
             m?.natural == true && bg != BackgroundStyle.Natural -> setBackground(BackgroundStyle.Natural)
@@ -317,6 +359,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 cutout = previous.cutout,
                 useCutout = previous.cutout != null && s.useCutout,
                 eraseStrokes = emptyList(),
+                // Marks only stay if the photo kept its size (undoing a crop moves everything).
+                flaws = if (previous.original.width == s.original?.width && previous.original.height == s.original.height) it.flaws else emptyList(),
                 history = it.history.dropLast(1),
             )
         }
@@ -575,19 +619,57 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             it.copy(
                 original = cropped,
                 cutout = cutout,
+                // Marks were placed on the uncropped photo; they no longer line up.
+                flaws = emptyList(),
                 history = (it.history + Snapshot(original, s.cutout)).takeLast(MAX_UNDO),
             )
         }
         leaveTool()
     }
 
+    // ---------- Flaw marker ----------
+
+    fun startFlaws() = _state.update {
+        if (!it.hasImage || it.isRemovingBackground || it.isInTool) it else it.copy(isMarkingFlaws = true)
+    }
+
+    fun finishFlaws() = _state.update { it.copy(isMarkingFlaws = false) }
+
+    /** Tap on the photo (0..1): removes a flaw there, or marks a new one. */
+    fun tapFlaw(x: Float, y: Float) = _state.update { s ->
+        val o = s.original ?: return@update s
+        val aspect = o.width / o.height.toFloat()
+        val side = minOf(o.width, o.height).toFloat()
+        val hit = s.flaws.lastOrNull { f ->
+            val dx = (f.x - x) * o.width
+            val dy = (f.y - y) * o.height
+            dx * dx + dy * dy <= (f.r * side) * (f.r * side)
+        }
+        if (aspect <= 0f) s
+        else if (hit != null) s.copy(flaws = s.flaws - hit)
+        else s.copy(flaws = s.flaws + Flaw(x, y, s.flawSize))
+    }
+
+    fun setFlawSize(r: Float) = _state.update { s ->
+        // Resizes the newest circle too, so you can tap then adjust.
+        s.copy(flawSize = r, flaws = if (s.flaws.isEmpty()) s.flaws else s.flaws.dropLast(1) + s.flaws.last().copy(r = r))
+    }
+
+    fun undoFlaw() = _state.update { it.copy(flaws = it.flaws.dropLast(1)) }
+    fun setCircleFlaws(on: Boolean) = _state.update { it.copy(circleFlaws = on) }
+
     // ---------- Save ----------
 
     fun paywallShown() = _state.update { it.copy(paywallRequested = false) }
 
-    fun save() {
+    /**
+     * Saves the photo, plus a close-up of each marked flaw, to the gallery. With [share], opens the share sheet
+     * with them afterwards (to post straight into a marketplace app). The free result covers the whole set.
+     */
+    fun save(share: Boolean = false) {
         val s = _state.value
         val content = s.displayBitmap ?: return
+        val original = s.original ?: return
         val freeSave = !isPremium.value
         if (freeSave && FreeAllowance.remaining() == 0) {
             _state.update { it.copy(paywallRequested = true) }
@@ -601,24 +683,56 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             adjustments = s.effectiveAdjustments,
             premium = isPremium.value,
         )
+        val marks = s.flawMarks(content)
 
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true, message = null) }
             runCatching {
-                val out = ImageRenderer.render(settings.renderSpec(content, s.backgroundPhoto))
+                val uris = mutableListOf<Uri>()
+                val out = ImageRenderer.render(settings.renderSpec(content, s.backgroundPhoto).copy(marks = marks))
                 try {
-                    ImageSaver.saveToGallery(getApplication(), out, transparent = settings.transparent, quality = settings.jpegQuality)
+                    uris += ImageSaver.saveToGallery(getApplication(), out, transparent = settings.transparent, quality = settings.jpegQuality)
                 } finally {
                     out.recycle()
                 }
-            }.onSuccess {
+                s.flaws.forEach { f -> uris += saveCloseUp(original, f, s.effectiveAdjustments, settings.premium) }
+                uris
+            }.onSuccess { uris ->
                 if (freeSave) FreeAllowance.markUsed(getApplication())
-                val message = if (freeSave) "Saved your free photo to Pictures/ProductSnap. Go Premium to save more without the watermark."
-                else "Saved to Pictures/ProductSnap"
-                _state.update { it.copy(isSaving = false, message = message) }
+                val what = if (uris.size > 1) "${uris.size} photos (with ${uris.size - 1} close-up${if (uris.size > 2) "s" else ""})" else "your photo"
+                val message = when {
+                    share -> null
+                    freeSave -> "Saved $what to Pictures/ProductSnap. Go Premium to save more without the watermark."
+                    else -> "Saved $what to Pictures/ProductSnap"
+                }
+                _state.update { it.copy(isSaving = false, message = message, shareUris = if (share) uris else null) }
             }.onFailure { e ->
                 _state.update { it.copy(isSaving = false, message = "Couldn't save: ${e.message}") }
             }
+        }
+    }
+
+    fun shareHandled() = _state.update { it.copy(shareUris = null) }
+
+    /** The flaw as photographed (real background, Auto light and sliders applied), as its own photo. */
+    private suspend fun saveCloseUp(original: Bitmap, f: Flaw, adjustments: Adjustments, premium: Boolean): Uri {
+        val side = minOf(original.width, original.height)
+        val r = FlawGeometry.closeUp(original.width, original.height, f.x * original.width, f.y * original.height, f.r * side)
+        val crop = withContext(Dispatchers.Default) { Bitmap.createBitmap(original, r[0], r[1], r[2] - r[0], r[3] - r[1]) }
+        val spec = RenderSpec(
+            content = crop,
+            adjustments = adjustments,
+            background = null,
+            canvasAspect = null,
+            maxOutputEdge = PremiumManager.EXPORT_MAX_EDGE,
+            watermark = if (premium) null else PremiumManager.WATERMARK,
+        )
+        val out = ImageRenderer.render(spec)
+        try {
+            return ImageSaver.saveToGallery(getApplication(), out, transparent = false, quality = 92)
+        } finally {
+            out.recycle()
+            if (crop !== original) crop.recycle()
         }
     }
 

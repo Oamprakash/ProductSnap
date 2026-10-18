@@ -25,6 +25,18 @@ import androidx.compose.material.icons.filled.Healing
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
+import com.oamsapps.productsnap.ui.shareIntent
+import com.oamsapps.productsnap.ui.PhotoTips
+import com.oamsapps.productsnap.ui.PhotoTipsDialog
+import androidx.compose.material.icons.filled.Lightbulb
+import com.oamsapps.productsnap.image.Marketplace
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.Adjust
+import androidx.compose.material.icons.filled.Share
 import com.oamsapps.imaging.PhotoWarning
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -66,6 +78,15 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
     BackHandler(enabled = state.isErasing) { vm.finishErase() }
     BackHandler(enabled = state.isCropping) { vm.cancelCrop() }
     BackHandler(enabled = state.isRefining) { vm.cancelRefine() }
+    BackHandler(enabled = state.isMarkingFlaws) { vm.finishFlaws() }
+    val context = LocalContext.current
+    var showTips by remember { mutableStateOf(!PhotoTips.seen(context)) }
+    if (showTips) PhotoTipsDialog(onDismiss = { PhotoTips.markSeen(context); showTips = false })
+    LaunchedEffect(state.shareUris) {
+        val uris = state.shareUris ?: return@LaunchedEffect
+        vm.shareHandled()
+        runCatching { context.startActivity(shareIntent(uris)) }
+    }
 
     LaunchedEffect(state.message) {
         state.message?.let { snackbar.showSnackbar(it); vm.clearMessage() }
@@ -86,6 +107,12 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                         }
                     },
                 )
+                state.isMarkingFlaws -> TopAppBar(
+                    title = { BuildTitle("Mark flaws") },
+                    navigationIcon = {
+                        IconButton(onClick = vm::finishFlaws) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor") }
+                    },
+                )
                 state.isRefining -> TopAppBar(
                     title = { BuildTitle("Fix cutout") },
                     navigationIcon = {
@@ -104,6 +131,7 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                 else -> TopAppBar(
                     title = { BuildTitle("ProductSnap") },
                     actions = {
+                        IconButton(onClick = { showTips = true }) { Icon(Icons.Default.Lightbulb, "Photo tips") }
                         if (state.canUndo) {
                             IconButton(onClick = vm::undo) { Icon(Icons.AutoMirrored.Filled.Undo, "Undo last edit") }
                         }
@@ -125,6 +153,8 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                             Button(onClick = vm::finishErase, enabled = !state.isApplyingErase, modifier = barModifier) {
                                 Text("Done")
                             }
+                        state.isMarkingFlaws ->
+                            Button(onClick = vm::finishFlaws, modifier = barModifier) { Text("Done") }
                         state.isRefining ->
                             Row(barModifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 OutlinedButton(onClick = vm::cancelRefine, modifier = Modifier.weight(1f)) { Text("Cancel") }
@@ -141,10 +171,17 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                             }
                         else ->
                             Column(barModifier, horizontalAlignment = Alignment.CenterHorizontally) {
-                                Button(onClick = vm::save, enabled = !state.isSaving, modifier = Modifier.fillMaxWidth()) {
-                                    Icon(Icons.Default.Download, null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(if (premium) "Save full quality" else "Save (with watermark)")
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Button(onClick = { vm.save() }, enabled = !state.isSaving, modifier = Modifier.weight(1f)) {
+                                        Icon(Icons.Default.Download, null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(if (premium) "Save" else "Save (watermark)")
+                                    }
+                                    OutlinedButton(onClick = { vm.save(share = true) }, enabled = !state.isSaving, modifier = Modifier.weight(1f)) {
+                                        Icon(Icons.Default.Share, null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Share")
+                                    }
                                 }
                                 if (!premium) {
                                     TextButton(onClick = onOpenPaywall) { Text("Remove watermark with Premium") }
@@ -178,6 +215,14 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                         )
                     },
                     controls = { EraseControls(state, vm) },
+                )
+
+            state.isMarkingFlaws ->
+                ToolLayout(
+                    aspect = original.width / original.height.toFloat(),
+                    modifier = Modifier.padding(padding),
+                    canvas = { FlawCanvas(original, state.flaws, onTap = vm::tapFlaw) },
+                    controls = { FlawControls(state, vm) },
                 )
 
             state.isRefining ->
@@ -230,6 +275,11 @@ fun EditorScreen(vm: EditorViewModel, onOpenBatch: () -> Unit, onOpenPaywall: ()
                             Icon(Icons.Default.Brush, null, Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("Fix cutout")
+                        }
+                        OutlinedButton(onClick = vm::startFlaws, enabled = !state.isRemovingBackground) {
+                            Icon(Icons.Default.Adjust, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (state.flaws.isEmpty()) "Mark flaws" else "Flaws (${state.flaws.size})")
                         }
                         OutlinedButton(onClick = vm::startCrop, enabled = !state.isRemovingBackground) {
                             Icon(Icons.Default.Crop, null, Modifier.size(18.dp))
@@ -331,6 +381,35 @@ private fun CropControls(state: EditorState, vm: EditorViewModel) {
                 Text("Fit to product")
             }
         }
+    }
+}
+
+@Composable
+private fun FlawControls(state: EditorState, vm: EditorViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "Tap each stain, tear or mark so buyers see it up front. Every flaw is also saved as its own close-up " +
+                "photo. Tap a circle to remove it.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Column {
+            Text("Circle size", style = MaterialTheme.typography.bodyMedium)
+            Slider(value = state.flawSize, onValueChange = vm::setFlawSize, valueRange = 0.02f..0.15f)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Circle flaws on the main photo", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    if (state.marketplace == Marketplace.EBAY) "Off for eBay, which doesn't allow added marks. The close-ups show the flaws instead."
+                    else "The close-ups are saved either way.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(checked = state.circleFlaws, onCheckedChange = vm::setCircleFlaws)
+        }
+        TextButton(onClick = vm::undoFlaw, enabled = state.flaws.isNotEmpty()) { Text("Undo last flaw") }
     }
 }
 
@@ -448,25 +527,71 @@ private fun Preview(state: EditorState) {
     val fillsBackground = !natural && (state.useCutout || aspect != null)
     val photo = remember(state.backgroundPhoto) { state.backgroundPhoto?.asImageBitmap() }
 
+    // Held down: the photo as it was taken, for an honest before/after.
+    var comparing by remember { mutableStateOf(false) }
+    val originalImage = remember(state.original) { state.original?.asImageBitmap() }
+    val marks = remember(state.flaws, state.circleFlaws, bmp) { state.flawMarks(bmp) }
+    val inset = if (!natural && aspect != null) 20.dp else 0.dp
+
     Box(
         Modifier
             .fillMaxWidth()
             .aspectRatio(if (natural || aspect == null) bmp.width / bmp.height.toFloat() else aspect)
             .clip(RoundedCornerShape(12.dp))
-            .then(if (fillsBackground) Modifier.backgroundStyle(state.background, photo) else Modifier)
+            .then(if (fillsBackground && !comparing) Modifier.backgroundStyle(state.background, photo) else Modifier)
             .pinchToZoom(zoom),
         contentAlignment = Alignment.Center,
     ) {
-        Image(
-            bitmap = image,
-            contentDescription = "Edited photo. Pinch or double-tap to zoom.",
-            colorFilter = filter,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize()
-                .zoomTransform(zoom)
-                .padding(if (!natural && aspect != null) 20.dp else 0.dp),
-        )
+        if (comparing && originalImage != null) {
+            Image(
+                bitmap = originalImage,
+                contentDescription = "Original photo",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().zoomTransform(zoom),
+            )
+        } else {
+            Image(
+                bitmap = image,
+                contentDescription = "Edited photo. Pinch or double-tap to zoom.",
+                colorFilter = filter,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zoomTransform(zoom)
+                    .padding(inset),
+            )
+            if (marks.isNotEmpty()) {
+                Canvas(Modifier.fillMaxSize().zoomTransform(zoom).padding(inset)) {
+                    // Same fit as the Image above.
+                    val s = minOf(size.width / bmp.width, size.height / bmp.height)
+                    val ox = (size.width - bmp.width * s) / 2f
+                    val oy = (size.height - bmp.height * s) / 2f
+                    marks.forEach { m -> drawFlawRing(Offset(ox + m.x * s, oy + m.y * s), m.r * s) }
+                }
+            }
+        }
+        if (state.original != null && (state.original !== bmp || filter != null)) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color.Black.copy(alpha = 0.55f),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(8.dp)
+                    .pointerInput(Unit) {
+                        detectTapGestures(onPress = {
+                            comparing = true
+                            try { tryAwaitRelease() } finally { comparing = false }
+                        })
+                    },
+            ) {
+                Text(
+                    if (comparing) "Original" else "Hold to compare",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+            }
+        }
         if (zoom.isZoomed) {
             FilledTonalIconButton(
                 onClick = zoom::reset,

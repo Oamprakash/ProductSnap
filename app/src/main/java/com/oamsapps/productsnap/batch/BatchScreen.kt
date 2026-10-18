@@ -22,6 +22,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.WarningAmber
+import com.oamsapps.productsnap.ui.shareIntent
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -383,8 +385,20 @@ private fun BatchBottomBar(
                             else "Save ${state.queuedCount} photos"
                         )
                     }
-                else ->
+                else -> {
+                    if (state.savedUris.isNotEmpty()) {
+                        val context = LocalContext.current
+                        OutlinedButton(
+                            onClick = { runCatching { context.startActivity(shareIntent(state.savedUris)) } },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Default.Share, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (state.savedUris.size == 1) "Share the photo" else "Share ${state.savedUris.size} photos")
+                        }
+                    }
                     Button(onClick = onPickNew, modifier = Modifier.fillMaxWidth()) { Text("Start a new batch") }
+                }
             }
         }
     }
