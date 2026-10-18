@@ -41,6 +41,8 @@ class MainActivity : ComponentActivity() {
 
     // Four screens and no deep stack; swap for Navigation Compose if that changes.
     private val screen = mutableStateOf(Screen.Home)
+    /** Where back from the editor goes: batch when a batch photo was opened, otherwise home. */
+    private val editorReturn = mutableStateOf(Screen.Home)
     private val showPaywall = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,6 +50,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         screen.value = savedInstanceState?.getString(KEY_SCREEN)?.let { name -> Screen.entries.firstOrNull { it.name == name } }
             ?: if (SellerPrefs.seller.value.onboarded) Screen.Home else Screen.Onboarding
+        editorReturn.value = savedInstanceState?.getString(KEY_EDITOR_RETURN)?.let { name -> Screen.entries.firstOrNull { it.name == name } }
+            ?: Screen.Home
         if (savedInstanceState == null) {
             editorVm.setMarketplace(SellerPrefs.seller.value.primary)
             handleIntent(intent)
@@ -81,8 +85,9 @@ class MainActivity : ComponentActivity() {
                                 onChangeMarkets = { screen.value = Screen.Onboarding },
                             )
                             Screen.Editor -> {
-                                BackHandler { home() }
-                                EditorScreen(editorVm, onBack = home, onOpenBatch = ::openBatch, onOpenPaywall = openPaywall)
+                                val back = { screen.value = editorReturn.value }
+                                BackHandler { back() }
+                                EditorScreen(editorVm, onBack = back, onOpenBatch = ::openBatch, onOpenPaywall = openPaywall)
                             }
                             Screen.Batch -> {
                                 BackHandler { home() }
@@ -91,6 +96,7 @@ class MainActivity : ComponentActivity() {
                                     onBack = home,
                                     onOpenPaywall = openPaywall,
                                     onOpenInEditor = { file ->
+                                        editorReturn.value = Screen.Batch
                                         screen.value = Screen.Editor
                                         editorVm.loadImage(Uri.fromFile(file), batchVm.state.value.settings)
                                     },
@@ -115,6 +121,7 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putString(KEY_SCREEN, screen.value.name)
+        outState.putString(KEY_EDITOR_RETURN, editorReturn.value.name)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -126,6 +133,7 @@ class MainActivity : ComponentActivity() {
     private fun openPhoto(uri: Uri) {
         editorVm.setMarketplace(SellerPrefs.seller.value.primary)
         editorVm.loadImage(uri)
+        editorReturn.value = Screen.Home
         screen.value = Screen.Editor
     }
 
@@ -159,5 +167,6 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_OPEN_BATCH = "open_batch"
         private const val KEY_SCREEN = "screen"
+        private const val KEY_EDITOR_RETURN = "editor_return"
     }
 }

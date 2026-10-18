@@ -135,7 +135,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onOpenBatch: () -> Uni
                     state.isMarkingFlaws -> StageIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor", vm::finishFlaws)
                     state.isRefining -> StageIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Cancel fixes", vm::cancelRefine)
                     state.isCropping -> StageIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Cancel crop", vm::cancelCrop)
-                    else -> StageIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Home", onBack)
+                    else -> StageIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack)
                 }
                 Column(Modifier.weight(1f)) {
                     Text(
