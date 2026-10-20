@@ -11,7 +11,10 @@ import kotlinx.coroutines.flow.asStateFlow
  * Premium: unlimited saves, no watermark, batches of up to 30 photos.
  */
 object PremiumManager {
-    private val _isPremium = MutableStateFlow(false)
+    /** Testing period: everyone gets Premium and the paywall stays out of the way (see ALL_FREE in build.gradle). */
+    val allFree: Boolean = BuildConfig.ALL_FREE
+
+    private val _isPremium = MutableStateFlow(allFree)
     val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
 
     /** Every save is full quality; free differs only by the watermark and the count. */
@@ -22,7 +25,7 @@ object PremiumManager {
     const val PREMIUM_BATCH_LIMIT = 30
 
     internal fun setPremium(premium: Boolean) {
-        _isPremium.value = premium
+        _isPremium.value = premium || allFree
     }
 
     /** Debug builds only, for testing premium flows without a purchase. */
