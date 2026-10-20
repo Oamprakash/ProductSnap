@@ -21,7 +21,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.11.1"
+          gradle-version: "8.13"
 
       # Turns on Crashlytics and Analytics in the build when the secret is set; builds without it otherwise.
       - name: Add Firebase config

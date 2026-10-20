@@ -15,7 +15,6 @@ import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
 import com.android.billingclient.api.acknowledgePurchase
-import com.android.billingclient.api.queryProductDetails
 import com.android.billingclient.api.queryPurchasesAsync
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +25,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 import kotlin.math.min
 
 /** One way to pay: a base plan, with its free trial if the user is eligible. */
@@ -143,10 +144,13 @@ object Billing : PurchasesUpdatedListener {
                 )
             )
             .build()
-        val result = client.queryProductDetails(params)
-        val details = result.productDetailsList?.firstOrNull()
-        if (result.billingResult.responseCode != BillingClient.BillingResponseCode.OK || details == null) {
-            Log.w(TAG, "No product details: ${result.billingResult.debugMessage}")
+        // Billing 8: products Play couldn't return come back in unfetchedProductList instead of being left out.
+        val (billingResult, result) = suspendCancellableCoroutine { cont ->
+            client.queryProductDetailsAsync(params) { br, r -> if (cont.isActive) cont.resume(br to r) }
+        }
+        val details = result.productDetailsList.firstOrNull()
+        if (billingResult.responseCode != BillingClient.BillingResponseCode.OK || details == null) {
+            Log.w(TAG, "No product details: ${billingResult.debugMessage}, unfetched: ${result.unfetchedProductList.map { it.productId to it.statusCode }}")
             _state.update { it.copy(isLoading = false, plans = emptyList(), error = "Premium plans aren't available right now. Check your connection and try again.") }
             return
         }

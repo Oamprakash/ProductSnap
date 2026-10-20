@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.oamsapps.imaging"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 29 // matches the app
@@ -17,7 +17,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
 
     // Test fixtures (synthetic masks) shared by JVM and emulator tests.
     sourceSets["test"].java.srcDir("src/sharedTest/java")
@@ -34,4 +33,8 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+}
+
+kotlin {
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
 }
