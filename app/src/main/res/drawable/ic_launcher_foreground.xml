@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ProductSnap mark: a tangerine lens inside paper viewfinder corners, on the ink background.
+     108dp adaptive canvas; everything sits inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:name="corners">
+        <path android:strokeColor="#F4F1EA" android:strokeWidth="3.5" android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M33,42 L33,37 Q33,33 37,33 L42,33" />
+        <path android:strokeColor="#F4F1EA" android:strokeWidth="3.5" android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M66,33 L71,33 Q75,33 75,37 L75,42" />
+        <path android:strokeColor="#F4F1EA" android:strokeWidth="3.5" android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M75,66 L75,71 Q75,75 71,75 L66,75" />
+        <path android:strokeColor="#F4F1EA" android:strokeWidth="3.5" android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M42,75 L37,75 Q33,75 33,71 L33,66" />
+    </group>
+    <path android:strokeColor="#FF5B2E" android:strokeWidth="4.5"
+        android:pathData="M42,54 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0" />
+    <path android:fillColor="#FF5B2E"
+        android:pathData="M50,54 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
+</vector>
