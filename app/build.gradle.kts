@@ -29,12 +29,12 @@ val uploadKeystore = signingValue("PRODUCTSNAP_KEYSTORE")?.let { file(it) }?.tak
 
 android {
     namespace = "com.oamsapps.productsnap"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.oamsapps.productsnap"
         minSdk = 29 // MediaStore scoped storage + ImageDecoder without legacy paths
-        targetSdk = 35
+        targetSdk = 36
         // Play needs a higher number for every upload: CI's run number, or 1 for local builds.
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionName = "0.1.0-$buildId"
@@ -58,6 +58,8 @@ android {
         release {
             signingConfigs.findByName("upload")?.let { signingConfig = it }
             isMinifyEnabled = true
+            // Native symbols from libraries (ML Kit, Crashlytics) go in the bundle, so Play can symbolise native crashes.
+            ndk { debugSymbolLevel = "SYMBOL_TABLE" }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
         }
     }
@@ -99,7 +101,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
 
     // Premium subscription
-    implementation("com.android.billingclient:billing-ktx:7.1.1")
+    implementation("com.android.billingclient:billing-ktx:8.3.0")
 
     // Crash reports and usage events (active only with google-services.json; see the top of this file)
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))

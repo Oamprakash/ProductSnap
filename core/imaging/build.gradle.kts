@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.oamsapps.imaging"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 29 // matches the app
