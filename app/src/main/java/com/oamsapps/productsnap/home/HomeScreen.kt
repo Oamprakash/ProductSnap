@@ -286,9 +286,10 @@ private fun PlanStrip(premium: Boolean, freeLeft: Boolean, onUpgrade: () -> Unit
     Surface(shape = RoundedCornerShape(18.dp), color = Studio.Chip, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(if (premium) "Premium" else "Free plan", style = MaterialTheme.typography.titleSmall)
+                Text(if (PremiumManager.allFree) "Free while testing" else if (premium) "Premium" else "Free plan", style = MaterialTheme.typography.titleSmall)
                 Text(
                     when {
+                        PremiumManager.allFree -> "Everything is unlocked while ProductSnap is in testing."
                         premium -> "Unlimited photos, no watermark."
                         freeLeft -> "${FreeAllowance.remaining()} photo left to save."
                         else -> "Free photo used. Go Premium to keep saving."

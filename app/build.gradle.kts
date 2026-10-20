@@ -39,6 +39,8 @@ android {
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionName = "0.1.0-$buildId"
         buildConfigField("String", "BUILD_ID", "\"$buildId\"")
+        // Testing period: every Premium feature is free for everyone. Set to false before the public launch.
+        buildConfigField("boolean", "ALL_FREE", "true")
     }
 
     signingConfigs {
