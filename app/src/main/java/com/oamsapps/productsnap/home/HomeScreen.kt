@@ -152,17 +152,16 @@ fun HomeScreen(
             onClick = pick,
             modifier = Modifier.fillMaxWidth(),
         )
-        // Same height side by side, titles sharing a last line, so the two cards line up.
+        // Same height side by side; one-line titles and descriptions keep both cards laid out alike.
         Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             BigTile(
-                title = "Many photos",
-                body = "Up to ${PremiumManager.PREMIUM_BATCH_LIMIT} at once.",
+                title = "Batch",
+                body = "${PremiumManager.PREMIUM_BATCH_LIMIT} photos at once.",
                 icon = Icons.Default.PhotoLibrary,
                 container = Studio.Accent,
                 content = Studio.Ink,
                 onClick = onOpenBatch,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
-                titleLines = 2,
             )
             BigTile(
                 title = "Photo tips",
@@ -172,7 +171,6 @@ fun HomeScreen(
                 content = Studio.Ink,
                 onClick = { showTips = true },
                 modifier = Modifier.weight(1f).fillMaxHeight(),
-                titleLines = 2,
             )
         }
 
