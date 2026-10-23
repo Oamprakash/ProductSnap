@@ -19,8 +19,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -64,6 +66,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -149,24 +152,25 @@ fun HomeScreen(
             onClick = pick,
             modifier = Modifier.fillMaxWidth(),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Same height side by side; one-line titles and descriptions keep both cards laid out alike.
+        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             BigTile(
-                title = "Many photos",
-                body = "Up to ${PremiumManager.PREMIUM_BATCH_LIMIT} at once.",
+                title = "Batch",
+                body = "${PremiumManager.PREMIUM_BATCH_LIMIT} photos at once.",
                 icon = Icons.Default.PhotoLibrary,
                 container = Studio.Accent,
                 content = Studio.Ink,
                 onClick = onOpenBatch,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
             BigTile(
                 title = "Photo tips",
-                body = "Shoot it right the first time.",
+                body = "Shoot better photos.",
                 icon = Icons.Default.Lightbulb,
                 container = Studio.Card,
                 content = Studio.Ink,
                 onClick = { showTips = true },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
         }
 
@@ -269,13 +273,19 @@ private fun BigTile(
     content: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Room reserved for the title, so tiles next to each other keep their text level. */
+    titleLines: Int = 1,
 ) {
+    val titleStyle = MaterialTheme.typography.headlineSmall
+    val titleHeight = with(LocalDensity.current) { (titleStyle.lineHeight * titleLines).toDp() }
     Surface(
         shape = RoundedCornerShape(24.dp),
         color = container,
         contentColor = content,
-        border = if (container == Studio.Card) BorderStroke(1.dp, Studio.Line) else null,
-        modifier = modifier.heightIn(min = 140.dp).clickable(role = Role.Button, onClick = onClick),
+        // Same 1 dp edge on every tile (matching the fill where no outline is wanted), so tiles match in size.
+        border = BorderStroke(1.dp, if (container == Studio.Card) Studio.Line else container),
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 140.dp),
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -284,7 +294,9 @@ private fun BigTile(
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(20.dp))
             }
             Spacer(Modifier.height(8.dp))
-            Text(title, style = MaterialTheme.typography.headlineSmall, color = content)
+            Box(Modifier.heightIn(min = titleHeight), contentAlignment = Alignment.BottomStart) {
+                Text(title, style = titleStyle, color = content)
+            }
             Text(body, style = MaterialTheme.typography.bodyMedium, color = content.copy(alpha = 0.78f))
         }
     }
