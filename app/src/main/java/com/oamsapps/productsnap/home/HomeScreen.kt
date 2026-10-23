@@ -19,8 +19,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -64,6 +66,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -149,7 +152,8 @@ fun HomeScreen(
             onClick = pick,
             modifier = Modifier.fillMaxWidth(),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Same height side by side, titles sharing a last line, so the two cards line up.
+        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             BigTile(
                 title = "Many photos",
                 body = "Up to ${PremiumManager.PREMIUM_BATCH_LIMIT} at once.",
@@ -157,7 +161,8 @@ fun HomeScreen(
                 container = Studio.Accent,
                 content = Studio.Ink,
                 onClick = onOpenBatch,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                titleLines = 2,
             )
             BigTile(
                 title = "Photo tips",
@@ -166,7 +171,8 @@ fun HomeScreen(
                 container = Studio.Card,
                 content = Studio.Ink,
                 onClick = { showTips = true },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                titleLines = 2,
             )
         }
 
@@ -269,7 +275,11 @@ private fun BigTile(
     content: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Room reserved for the title, so tiles next to each other keep their text level. */
+    titleLines: Int = 1,
 ) {
+    val titleStyle = MaterialTheme.typography.headlineSmall
+    val titleHeight = with(LocalDensity.current) { (titleStyle.lineHeight * titleLines).toDp() }
     Surface(
         shape = RoundedCornerShape(24.dp),
         color = container,
@@ -284,7 +294,9 @@ private fun BigTile(
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(20.dp))
             }
             Spacer(Modifier.height(8.dp))
-            Text(title, style = MaterialTheme.typography.headlineSmall, color = content)
+            Box(Modifier.heightIn(min = titleHeight), contentAlignment = Alignment.BottomStart) {
+                Text(title, style = titleStyle, color = content)
+            }
             Text(body, style = MaterialTheme.typography.bodyMedium, color = content.copy(alpha = 0.78f))
         }
     }
