@@ -12,6 +12,8 @@ data class Seller(
     /** The marketplace new photos and batches are made for; null = any shape. */
     val primary: Marketplace? = null,
     val onboarded: Boolean = false,
+    /** Has seen the welcome walkthrough (what the app is for and how to use it). */
+    val introSeen: Boolean = false,
 )
 
 object SellerPrefs {
@@ -19,6 +21,7 @@ object SellerPrefs {
     private const val KEY_MARKETS = "markets"
     private const val KEY_PRIMARY = "primary"
     private const val KEY_ONBOARDED = "onboarded"
+    private const val KEY_INTRO_SEEN = "intro_seen"
     private const val ANY = "ANY"
 
     private val _seller = MutableStateFlow(Seller())
@@ -31,6 +34,7 @@ object SellerPrefs {
             markets = markets,
             primary = p.getString(KEY_PRIMARY, null)?.let { decode(it) },
             onboarded = p.getBoolean(KEY_ONBOARDED, false),
+            introSeen = p.getBoolean(KEY_INTRO_SEEN, false),
         )
     }
 
@@ -38,7 +42,7 @@ object SellerPrefs {
     fun saveMarkets(context: Context, markets: List<Marketplace?>) {
         val current = _seller.value.primary
         val primary = if (current in markets && markets.isNotEmpty()) current else markets.firstOrNull { it != null }
-        write(context, Seller(markets, primary, onboarded = true))
+        write(context, _seller.value.copy(markets = markets, primary = primary, onboarded = true))
     }
 
     fun setPrimary(context: Context, m: Marketplace?) {
@@ -46,11 +50,16 @@ object SellerPrefs {
         write(context, s.copy(primary = m, markets = if (m in s.markets) s.markets else s.markets + m))
     }
 
+    fun markIntroSeen(context: Context) {
+        if (!_seller.value.introSeen) write(context, _seller.value.copy(introSeen = true))
+    }
+
     private fun write(context: Context, s: Seller) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY_MARKETS, s.markets.joinToString(",") { encode(it) })
             .putString(KEY_PRIMARY, encode(s.primary))
             .putBoolean(KEY_ONBOARDED, s.onboarded)
+            .putBoolean(KEY_INTRO_SEEN, s.introSeen)
             .apply()
         _seller.value = s
     }
