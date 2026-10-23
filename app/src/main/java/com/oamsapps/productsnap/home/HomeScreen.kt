@@ -166,7 +166,7 @@ fun HomeScreen(
             )
             BigTile(
                 title = "Photo tips",
-                body = "Shoot it right the first time.",
+                body = "Shoot better photos.",
                 icon = Icons.Default.Lightbulb,
                 container = Studio.Card,
                 content = Studio.Ink,
@@ -284,8 +284,10 @@ private fun BigTile(
         shape = RoundedCornerShape(24.dp),
         color = container,
         contentColor = content,
-        border = if (container == Studio.Card) BorderStroke(1.dp, Studio.Line) else null,
-        modifier = modifier.heightIn(min = 140.dp).clickable(role = Role.Button, onClick = onClick),
+        // Same 1 dp edge on every tile (matching the fill where no outline is wanted), so tiles match in size.
+        border = BorderStroke(1.dp, if (container == Studio.Card) Studio.Line else container),
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 140.dp),
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
