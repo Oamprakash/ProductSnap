@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -87,6 +88,7 @@ fun HomeScreen(
     onOpenPaywall: () -> Unit,
     onPrimaryChanged: (Marketplace?) -> Unit,
     onChangeMarkets: () -> Unit,
+    onHowItWorks: () -> Unit,
 ) {
     val context = LocalContext.current
     val seller by SellerPrefs.seller.collectAsStateWithLifecycle()
@@ -98,7 +100,7 @@ fun HomeScreen(
     }
     val pick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
 
-    var showTips by remember { mutableStateOf(!PhotoTips.seen(context)) }
+    var showTips by remember { mutableStateOf(false) }
     if (showTips) PhotoTipsDialog(onDismiss = { PhotoTips.markSeen(context); showTips = false })
     var showMarkets by remember { mutableStateOf(false) }
 
@@ -128,7 +130,14 @@ fun HomeScreen(
 
         MarketPill(seller.primary, onClick = { showMarkets = true })
 
-        Text("Listing-ready photos in 60 seconds.", style = MaterialTheme.typography.displaySmall)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Listing-ready photos in 60 seconds.", style = MaterialTheme.typography.displaySmall)
+            TextButton(onClick = onHowItWorks, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)) {
+                Text("How ProductSnap works", style = MaterialTheme.typography.labelLarge, color = Studio.Ink)
+                Spacer(Modifier.size(6.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(16.dp), tint = Studio.Ink)
+            }
+        }
 
         // Actions
         BigTile(

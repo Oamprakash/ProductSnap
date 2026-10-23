@@ -27,12 +27,13 @@ import com.oamsapps.productsnap.billing.PaywallSheet
 import com.oamsapps.productsnap.editor.EditorScreen
 import com.oamsapps.productsnap.editor.EditorViewModel
 import com.oamsapps.productsnap.home.HomeScreen
+import com.oamsapps.productsnap.home.IntroScreen
 import com.oamsapps.productsnap.home.OnboardingScreen
 import com.oamsapps.productsnap.home.SellerPrefs
 import com.oamsapps.productsnap.ui.theme.ProductSnapTheme
 import com.oamsapps.productsnap.ui.theme.Studio
 
-private enum class Screen { Onboarding, Home, Editor, Batch }
+private enum class Screen { Intro, Onboarding, Home, Editor, Batch }
 
 class MainActivity : ComponentActivity() {
 
@@ -49,7 +50,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         screen.value = savedInstanceState?.getString(KEY_SCREEN)?.let { name -> Screen.entries.firstOrNull { it.name == name } }
-            ?: if (SellerPrefs.seller.value.onboarded) Screen.Home else Screen.Onboarding
+            ?: SellerPrefs.seller.value.let { s ->
+                when {
+                    !s.introSeen -> Screen.Intro
+                    !s.onboarded -> Screen.Onboarding
+                    else -> Screen.Home
+                }
+            }
         editorReturn.value = savedInstanceState?.getString(KEY_EDITOR_RETURN)?.let { name -> Screen.entries.firstOrNull { it.name == name } }
             ?: Screen.Home
         if (savedInstanceState == null) {
@@ -65,6 +72,14 @@ class MainActivity : ComponentActivity() {
                 Box(Modifier.fillMaxSize().background(Studio.Paper)) {
                     AnimatedContent(screen.value, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "screen") { current ->
                         when (current) {
+                            Screen.Intro -> {
+                                // Replayed from Home: back returns there. First launch: back leaves the app as usual.
+                                BackHandler(enabled = seller.introSeen) { home() }
+                                IntroScreen(onDone = {
+                                    SellerPrefs.markIntroSeen(this@MainActivity)
+                                    screen.value = if (SellerPrefs.seller.value.onboarded) Screen.Home else Screen.Onboarding
+                                })
+                            }
                             Screen.Onboarding -> OnboardingScreen(
                                 initial = seller.markets,
                                 onDone = { markets ->
@@ -83,6 +98,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenPaywall = openPaywall,
                                 onPrimaryChanged = { editorVm.setMarketplace(it) },
                                 onChangeMarkets = { screen.value = Screen.Onboarding },
+                                onHowItWorks = { screen.value = Screen.Intro },
                             )
                             Screen.Editor -> {
                                 val back = { screen.value = editorReturn.value }
