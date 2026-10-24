@@ -79,6 +79,7 @@ import com.oamsapps.productsnap.ui.PaperIconButton
 import com.oamsapps.productsnap.ui.PhotoTips
 import com.oamsapps.productsnap.ui.PhotoTipsDialog
 import com.oamsapps.productsnap.ui.SectionLabel
+import com.oamsapps.productsnap.ui.rememberTakePhoto
 import com.oamsapps.productsnap.ui.theme.Studio
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -102,6 +103,8 @@ fun HomeScreen(
         uri?.let(onOpenPhoto)
     }
     val pick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+    val takePhoto = rememberTakePhoto(onPhoto = onOpenPhoto)
+    var showAddPhoto by remember { mutableStateOf(false) }
 
     var showTips by remember { mutableStateOf(false) }
     if (showTips) PhotoTipsDialog(onDismiss = { PhotoTips.markSeen(context); showTips = false })
@@ -149,7 +152,7 @@ fun HomeScreen(
             icon = Icons.Default.PhotoCamera,
             container = Studio.Ink,
             content = Studio.Paper,
-            onClick = pick,
+            onClick = { showAddPhoto = true },
             modifier = Modifier.fillMaxWidth(),
         )
         // Same height side by side; one-line titles and descriptions keep both cards laid out alike.
@@ -197,6 +200,22 @@ fun HomeScreen(
         Spacer(Modifier.height(8.dp))
     }
 
+    if (showAddPhoto) {
+        ModalBottomSheet(onDismissRequest = { showAddPhoto = false }, containerColor = Studio.Paper) {
+            Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Add a photo", style = MaterialTheme.typography.headlineSmall)
+                SourceRow(Icons.Default.PhotoCamera, "Take a photo", "Opens your camera. Shoot in daylight with space around the item.") {
+                    showAddPhoto = false
+                    takePhoto()
+                }
+                SourceRow(Icons.Default.PhotoLibrary, "Choose from gallery", "Pick a photo you've already taken.") {
+                    showAddPhoto = false
+                    pick()
+                }
+            }
+        }
+    }
+
     if (showMarkets) {
         ModalBottomSheet(onDismissRequest = { showMarkets = false }, containerColor = Studio.Paper) {
             Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -231,6 +250,28 @@ fun HomeScreen(
                     Spacer(Modifier.size(8.dp))
                     Text("Change where I sell")
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SourceRow(icon: ImageVector, title: String, body: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(18.dp),
+        color = Studio.Card,
+        border = BorderStroke(1.dp, Studio.Line),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+                Surface(Modifier.fillMaxSize(), color = Studio.Ink) {}
+                Icon(icon, null, Modifier.size(22.dp), tint = Studio.Paper)
+            }
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(body, style = MaterialTheme.typography.bodySmall, color = Studio.Muted)
             }
         }
     }

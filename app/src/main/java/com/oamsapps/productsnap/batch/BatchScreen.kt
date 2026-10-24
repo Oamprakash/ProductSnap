@@ -390,7 +390,7 @@ private fun ProgressCard(state: BatchState) {
             )
             Text(
                 if (state.isRunning) "You can leave the app; progress shows in your notifications."
-                else state.timing ?: "${state.savedUris.size} saved to your gallery.",
+                else state.timing?.takeIf { com.oamsapps.productsnap.BuildConfig.DEBUG } ?: "${state.savedUris.size} saved to your gallery.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Studio.StageMuted,
             )

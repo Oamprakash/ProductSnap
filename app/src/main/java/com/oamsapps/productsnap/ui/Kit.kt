@@ -165,5 +165,8 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
 /** The build ID, small, so screenshots name their build. */
 @Composable
 fun BuildTag(color: Color = Studio.Muted, modifier: Modifier = Modifier) {
-    Text("Build ${BuildConfig.BUILD_ID}", style = MaterialTheme.typography.labelSmall, color = color, modifier = modifier)
+    // Debug builds only; testers and users see the version in Photo tips instead.
+    if (BuildConfig.DEBUG) {
+        Text("Build ${BuildConfig.BUILD_ID}", style = MaterialTheme.typography.labelSmall, color = color, modifier = modifier)
+    }
 }
