@@ -91,7 +91,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
 
     // Batch runs as a foreground job that survives the app going to the background
-    implementation("androidx.work:work-runtime-ktx:2.10.0")
+    // Pinned to 2.9.1: WorkManager 2.10+ calls JobScheduler.forNamespace on any phone reporting API 34, which
+    // crashes at startup on ROMs that report 34 over an older framework (seen in Crashlytics). 2.9.1 has
+    // everything batch uses (typed foreground service, expedited work). strictly() stops a library pulling 2.10+.
+    implementation("androidx.work:work-runtime-ktx") { version { strictly("2.9.1") } }
+    implementation("androidx.work:work-runtime") { version { strictly("2.9.1") } }
 
     // Tested photo pipeline: segmentation, mask check, edge cleanup, compositing
     implementation(project(":core:imaging"))
