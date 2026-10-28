@@ -63,6 +63,7 @@ import com.oamsapps.productsnap.ui.PaperButton
 import com.oamsapps.productsnap.ui.PhotoTipsDialog
 import com.oamsapps.productsnap.ui.StageIconButton
 import com.oamsapps.productsnap.ui.StagePill
+import com.oamsapps.productsnap.ui.firstUseTip
 import com.oamsapps.productsnap.ui.shareIntent
 import com.oamsapps.productsnap.ui.theme.Studio
 
@@ -370,14 +371,24 @@ private fun EditorTabs(selected: EditorTab, flawCount: Int, enabled: Boolean, on
 
 @Composable
 private fun CutoutPanel(state: EditorState, vm: EditorViewModel) {
-    Segmented(
-        left = "Remove background",
-        right = "Original",
-        leftSelected = state.useCutout,
-        enabled = !state.isRemovingBackground,
-        onLeft = vm::removeBackground,
-        onRight = vm::showOriginal,
-    )
+    Box(
+        Modifier.fillMaxWidth().firstUseTip(
+            key = "editor_cutout",
+            title = "Background removed",
+            body = "Not quite right? Fix cutout lets you paint corrections. Tap Original to go back to your photo.",
+            order = 1,
+            active = state.useCutout && !state.isNatural && !state.isRemovingBackground,
+        )
+    ) {
+        Segmented(
+            left = "Remove background",
+            right = "Original",
+            leftSelected = state.useCutout,
+            enabled = !state.isRemovingBackground,
+            onLeft = vm::removeBackground,
+            onRight = vm::showOriginal,
+        )
+    }
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         PaperButton("Fix cutout", vm::startRefine, Modifier.weight(1f), icon = Icons.Default.Brush, enabled = !state.isRemovingBackground)
         PaperButton("Magic eraser", vm::startErase, Modifier.weight(1f), icon = Icons.Default.Healing, enabled = !state.isRemovingBackground)
@@ -389,7 +400,16 @@ private fun CutoutPanel(state: EditorState, vm: EditorViewModel) {
 
 @Composable
 private fun BackgroundPanel(state: EditorState, vm: EditorViewModel, premium: Boolean, onChoosePhoto: () -> Unit) {
-    MarketplacePicker(state.marketplace, enabled = !state.isRemovingBackground, premium = premium, onSelect = vm::setMarketplace)
+    Box(
+        Modifier.fillMaxWidth().firstUseTip(
+            key = "editor_background",
+            title = "Made for where you sell",
+            body = "Pick a marketplace and the shape and background are set for you. Vinted keeps your real background.",
+            order = 3,
+        )
+    ) {
+        MarketplacePicker(state.marketplace, enabled = !state.isRemovingBackground, premium = premium, onSelect = vm::setMarketplace)
+    }
     if (state.marketplace == null) SwitchRow("Square", null, state.squareCanvas, vm::setSquare)
     BackgroundPicker(
         selected = state.background,
@@ -411,7 +431,16 @@ private fun BackgroundPanel(state: EditorState, vm: EditorViewModel, premium: Bo
 
 @Composable
 private fun LightPanel(state: EditorState, vm: EditorViewModel) {
-    LightStrengthPicker(state.lightStrength, enabled = true, onSelect = vm::setLightStrength)
+    Box(
+        Modifier.fillMaxWidth().firstUseTip(
+            key = "editor_light",
+            title = "Auto light",
+            body = "Brightens dim indoor photos automatically. Pick Gentle, Normal or Strong, or fine-tune with the sliders.",
+            order = 3,
+        )
+    ) {
+        LightStrengthPicker(state.lightStrength, enabled = true, onSelect = vm::setLightStrength)
+    }
     LabeledSlider("Brightness", state.adjustments.brightness, vm::setBrightness)
     LabeledSlider("Contrast", state.adjustments.contrast, vm::setContrast)
     TextButton(onClick = vm::resetAdjustments, enabled = !state.adjustments.slidersNeutral) {
@@ -478,7 +507,16 @@ private fun CropControls(state: EditorState, vm: EditorViewModel) {
         if (state.cropAspect == null) "Drag the corners or edges to crop, or drag the middle to move the frame."
         else "Drag a corner to resize, or the middle to move the frame."
     )
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .firstUseTip(
+                key = "tool_crop",
+                title = "Crop",
+                body = "Drag the corners on the photo, or pick a shape here. Fit to product trims the empty space around your item.",
+            )
+            .horizontalScroll(rememberScrollState()),
+    ) {
         CropPresets.forEach { (label, aspect) ->
             FilterChip(selected = state.cropAspect == aspect, onClick = { vm.setCropAspect(aspect) }, label = { Text(label) })
         }
@@ -492,7 +530,15 @@ private fun CropControls(state: EditorState, vm: EditorViewModel) {
 @Composable
 private fun FlawControls(state: EditorState, vm: EditorViewModel) {
     Hint("Tap each stain, tear or mark so buyers see it up front. Every flaw is also saved as its own close-up photo. Tap a circle to remove it.")
-    LabeledSlider("Circle size", state.flawSize, vm::setFlawSize, 0.02f..0.15f)
+    Box(
+        Modifier.fillMaxWidth().firstUseTip(
+            key = "tool_flaws",
+            title = "Mark flaws",
+            body = "Tap each stain, tear or mark on the photo. Each one is also saved as its own close-up for your listing.",
+        )
+    ) {
+        LabeledSlider("Circle size", state.flawSize, vm::setFlawSize, 0.02f..0.15f)
+    }
     SwitchRow(
         "Circle flaws on the main photo",
         if (state.marketplace == Marketplace.EBAY) "Off for eBay, which doesn't allow added marks. The close-ups show the flaws instead."
@@ -505,14 +551,22 @@ private fun FlawControls(state: EditorState, vm: EditorViewModel) {
 
 @Composable
 private fun RefineControls(state: EditorState, vm: EditorViewModel) {
-    Segmented(
-        left = "Remove",
-        right = "Restore",
-        leftSelected = !state.refineRestore,
-        enabled = true,
-        onLeft = { vm.setRefineRestore(false) },
-        onRight = { vm.setRefineRestore(true) },
-    )
+    Box(
+        Modifier.fillMaxWidth().firstUseTip(
+            key = "tool_fix_cutout",
+            title = "Fix cutout",
+            body = "Remove paints away leftovers like a hanger or floor. Restore brings back parts that were cut off. Pinch to zoom for detail.",
+        )
+    ) {
+        Segmented(
+            left = "Remove",
+            right = "Restore",
+            leftSelected = !state.refineRestore,
+            enabled = true,
+            onLeft = { vm.setRefineRestore(false) },
+            onRight = { vm.setRefineRestore(true) },
+        )
+    }
     Hint(
         if (state.refineRestore) "Paint over parts of the product that were cut away. They come back exactly as photographed."
         else "Paint over anything that isn't the product, like a hanger or background between straps."
@@ -528,7 +582,15 @@ private fun EraseControls(state: EditorState, vm: EditorViewModel) {
         "Paint over background clutter, then tap Erase. Pinch to zoom in on small spots. " +
             "The product itself is protected, so its real condition stays visible to buyers."
     )
-    LabeledSlider("Brush size", state.brushSizeDp, vm::setBrushSize, 12f..64f, enabled = !busy)
+    Box(
+        Modifier.fillMaxWidth().firstUseTip(
+            key = "tool_magic_eraser",
+            title = "Magic eraser",
+            body = "Paint over clutter like a cable or a tag, then tap Erase. Your item itself is protected.",
+        )
+    ) {
+        LabeledSlider("Brush size", state.brushSizeDp, vm::setBrushSize, 12f..64f, enabled = !busy)
+    }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         TextButton(onClick = vm::undoEraseStroke, enabled = state.eraseStrokes.isNotEmpty() && !busy) { Text("Undo stroke", color = Studio.Ink) }
         TextButton(onClick = vm::undo, enabled = state.canUndo && !busy) { Text("Undo last edit", color = Studio.Ink) }
@@ -634,6 +696,12 @@ private fun Preview(state: EditorState) {
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .padding(10.dp)
+                        .firstUseTip(
+                            key = "editor_compare",
+                            title = "Hold to compare",
+                            body = "Press and hold to see your photo exactly as you took it.",
+                            order = 2,
+                        )
                         .semantics { contentDescription = "Hold to see the original photo" }
                         .pointerInput(Unit) {
                             detectTapGestures(onPress = {

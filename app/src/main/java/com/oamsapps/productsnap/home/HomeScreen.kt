@@ -19,8 +19,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -64,6 +66,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -76,6 +79,7 @@ import com.oamsapps.productsnap.ui.PaperIconButton
 import com.oamsapps.productsnap.ui.PhotoTips
 import com.oamsapps.productsnap.ui.PhotoTipsDialog
 import com.oamsapps.productsnap.ui.SectionLabel
+import com.oamsapps.productsnap.ui.rememberTakePhoto
 import com.oamsapps.productsnap.ui.theme.Studio
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -99,6 +103,8 @@ fun HomeScreen(
         uri?.let(onOpenPhoto)
     }
     val pick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+    val takePhoto = rememberTakePhoto(onPhoto = onOpenPhoto)
+    var showAddPhoto by remember { mutableStateOf(false) }
 
     var showTips by remember { mutableStateOf(false) }
     if (showTips) PhotoTipsDialog(onDismiss = { PhotoTips.markSeen(context); showTips = false })
@@ -146,27 +152,28 @@ fun HomeScreen(
             icon = Icons.Default.PhotoCamera,
             container = Studio.Ink,
             content = Studio.Paper,
-            onClick = pick,
+            onClick = { showAddPhoto = true },
             modifier = Modifier.fillMaxWidth(),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Same height side by side; one-line titles and descriptions keep both cards laid out alike.
+        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             BigTile(
-                title = "Many photos",
-                body = "Up to ${PremiumManager.PREMIUM_BATCH_LIMIT} at once.",
+                title = "Batch",
+                body = "${PremiumManager.PREMIUM_BATCH_LIMIT} photos at once.",
                 icon = Icons.Default.PhotoLibrary,
                 container = Studio.Accent,
                 content = Studio.Ink,
                 onClick = onOpenBatch,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
             BigTile(
                 title = "Photo tips",
-                body = "Shoot it right the first time.",
+                body = "Shoot better photos.",
                 icon = Icons.Default.Lightbulb,
                 container = Studio.Card,
                 content = Studio.Ink,
                 onClick = { showTips = true },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
         }
 
@@ -191,6 +198,22 @@ fun HomeScreen(
 
         PlanStrip(premium = premium, freeLeft = freeLeft, onUpgrade = onOpenPaywall)
         Spacer(Modifier.height(8.dp))
+    }
+
+    if (showAddPhoto) {
+        ModalBottomSheet(onDismissRequest = { showAddPhoto = false }, containerColor = Studio.Paper) {
+            Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Add a photo", style = MaterialTheme.typography.headlineSmall)
+                SourceRow(Icons.Default.PhotoCamera, "Take a photo", "Opens your camera. Shoot in daylight with space around the item.") {
+                    showAddPhoto = false
+                    takePhoto()
+                }
+                SourceRow(Icons.Default.PhotoLibrary, "Choose from gallery", "Pick a photo you've already taken.") {
+                    showAddPhoto = false
+                    pick()
+                }
+            }
+        }
     }
 
     if (showMarkets) {
@@ -233,6 +256,28 @@ fun HomeScreen(
 }
 
 @Composable
+private fun SourceRow(icon: ImageVector, title: String, body: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(18.dp),
+        color = Studio.Card,
+        border = BorderStroke(1.dp, Studio.Line),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+                Surface(Modifier.fillMaxSize(), color = Studio.Ink) {}
+                Icon(icon, null, Modifier.size(22.dp), tint = Studio.Paper)
+            }
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(body, style = MaterialTheme.typography.bodySmall, color = Studio.Muted)
+            }
+        }
+    }
+}
+
+@Composable
 private fun Logo() {
     Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
         Surface(Modifier.fillMaxSize(), color = Studio.Ink) {}
@@ -269,13 +314,19 @@ private fun BigTile(
     content: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Room reserved for the title, so tiles next to each other keep their text level. */
+    titleLines: Int = 1,
 ) {
+    val titleStyle = MaterialTheme.typography.headlineSmall
+    val titleHeight = with(LocalDensity.current) { (titleStyle.lineHeight * titleLines).toDp() }
     Surface(
         shape = RoundedCornerShape(24.dp),
         color = container,
         contentColor = content,
-        border = if (container == Studio.Card) BorderStroke(1.dp, Studio.Line) else null,
-        modifier = modifier.heightIn(min = 140.dp).clickable(role = Role.Button, onClick = onClick),
+        // Same 1 dp edge on every tile (matching the fill where no outline is wanted), so tiles match in size.
+        border = BorderStroke(1.dp, if (container == Studio.Card) Studio.Line else container),
+        onClick = onClick,
+        modifier = modifier.heightIn(min = 140.dp),
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -284,7 +335,9 @@ private fun BigTile(
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(20.dp))
             }
             Spacer(Modifier.height(8.dp))
-            Text(title, style = MaterialTheme.typography.headlineSmall, color = content)
+            Box(Modifier.heightIn(min = titleHeight), contentAlignment = Alignment.BottomStart) {
+                Text(title, style = titleStyle, color = content)
+            }
             Text(body, style = MaterialTheme.typography.bodyMedium, color = content.copy(alpha = 0.78f))
         }
     }

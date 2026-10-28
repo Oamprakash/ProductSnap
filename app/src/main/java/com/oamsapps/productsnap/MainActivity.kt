@@ -30,6 +30,8 @@ import com.oamsapps.productsnap.home.HomeScreen
 import com.oamsapps.productsnap.home.IntroScreen
 import com.oamsapps.productsnap.home.OnboardingScreen
 import com.oamsapps.productsnap.home.SellerPrefs
+import com.oamsapps.productsnap.ui.FirstUseTipHost
+import com.oamsapps.productsnap.ui.rememberFirstUseTips
 import com.oamsapps.productsnap.ui.theme.ProductSnapTheme
 import com.oamsapps.productsnap.ui.theme.Studio
 
@@ -69,7 +71,10 @@ class MainActivity : ComponentActivity() {
                 val seller by SellerPrefs.seller.collectAsStateWithLifecycle()
                 val openPaywall = { showPaywall.value = true }
                 val home = { screen.value = Screen.Home }
+                val firstUseTips = rememberFirstUseTips()
                 Box(Modifier.fillMaxSize().background(Studio.Paper)) {
+                    // First-use tips point at features the first time they appear on screen.
+                    FirstUseTipHost(firstUseTips) {
                     AnimatedContent(screen.value, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "screen") { current ->
                         when (current) {
                             Screen.Intro -> {
@@ -119,6 +124,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
+                    }
                     }
                 }
                 if (showPaywall.value) {

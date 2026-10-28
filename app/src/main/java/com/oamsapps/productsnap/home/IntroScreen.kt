@@ -176,7 +176,7 @@ private fun HowPage() {
             Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         ) {
-            Step(1, Icons.Default.PhotoCamera, "Pick a photo", "Tap One photo on Home, or Many photos to do a whole batch.")
+            Step(1, Icons.Default.PhotoCamera, "Pick a photo", "Tap One photo on Home, or Batch to do up to 30 at once.")
             Step(2, Icons.Default.AutoFixHigh, "Clean it up", "Remove the background, then use the Light, Background and Crop tabs if you want to adjust.")
             Step(3, Icons.Default.Share, "Save or share", "Save to your gallery, or share straight to your eBay, Vinted or Depop app.")
         }
