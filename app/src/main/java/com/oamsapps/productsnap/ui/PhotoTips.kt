@@ -103,6 +103,19 @@ fun PhotoTipsDialog(onDismiss: () -> Unit) {
                 )
                 Example.entries.forEach { ExampleRow(it) }
 
+                SectionLabel("Shots to take")
+                Text(
+                    "Buyers trust listings that show the whole item and the details. Take these for each item:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Studio.Muted,
+                )
+                ShotGrid()
+                Text(
+                    "Shoes: add the sole and both sides. Bags: add the inside and the base. Jewelry: add the clasp and any marks.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Studio.Muted,
+                )
+
                 SectionLabel("More tips")
                 tips.forEach { t ->
                     Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -164,6 +177,133 @@ private fun ExampleTile(example: Example, good: Boolean, modifier: Modifier) {
             }
         }
         Text(caption, style = MaterialTheme.typography.bodySmall, color = Studio.Muted)
+    }
+}
+
+/** The shot list: the angles buyers look for, in the order to take them. */
+private enum class Shot(val title: String, val body: String) {
+    Front("Front", "The whole item, flat and straight. This is your main photo."),
+    Back("Back", "Turn it over and shoot the same way."),
+    Label("Brand label", "Close enough to read the brand."),
+    Tag("Size and care tag", "Size, material and care, so buyers don't have to ask."),
+    Detail("Details", "Fabric, zip, buttons or print, up close."),
+    Flaw("Flaws", "A close-up of each stain, tear or mark."),
+    Measure("Measurements", "A tape across the chest or along the length."),
+}
+
+@Composable
+private fun ShotGrid() {
+    // Two per row; the last one sits alone at half width so every tile is the same size.
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Shot.entries.chunked(2).forEach { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                pair.forEach { shot -> ShotTile(Shot.entries.indexOf(shot) + 1, shot, Modifier.weight(1f)) }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShotTile(number: Int, shot: Shot, modifier: Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(18.dp))
+                .semantics { contentDescription = "${shot.title}: ${shot.body}" },
+        ) {
+            Canvas(Modifier.fillMaxSize()) { drawShot(shot) }
+            Surface(
+                shape = CircleShape,
+                color = Studio.Ink,
+                contentColor = Studio.Paper,
+                modifier = Modifier.align(Alignment.TopStart).padding(8.dp).size(24.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) { Text("$number", style = MaterialTheme.typography.labelMedium) }
+            }
+        }
+        Text(shot.title, style = MaterialTheme.typography.titleSmall)
+        Text(shot.body, style = MaterialTheme.typography.bodySmall, color = Studio.Muted)
+    }
+}
+
+private fun DrawScope.drawShot(shot: Shot) {
+    val w = size.width
+    val h = size.height
+    clipRect {
+        when (shot) {
+            Shot.Front -> {
+                drawRect(Floor)
+                shirt(0.66f, shadow = true)
+            }
+            Shot.Back -> {
+                drawRect(Floor)
+                shirt(0.66f, color = ShirtDark, shadow = true)
+                // A higher back neckline, so it reads as the back.
+                drawArc(
+                    Shirt, startAngle = 0f, sweepAngle = 180f, useCenter = true,
+                    topLeft = Offset(w * 0.43f, h * 0.16f), size = Size(w * 0.14f, h * 0.06f),
+                )
+            }
+            Shot.Label -> {
+                // Close-up: fabric with a woven brand label.
+                drawRect(Shirt)
+                drawRoundRect(
+                    Color.White, topLeft = Offset(w * 0.22f, h * 0.32f), size = Size(w * 0.56f, h * 0.30f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.03f),
+                )
+                drawRect(Studio.Ink, topLeft = Offset(w * 0.32f, h * 0.41f), size = Size(w * 0.36f, h * 0.05f))
+                drawRect(Color(0xFFB8B2A7), topLeft = Offset(w * 0.36f, h * 0.50f), size = Size(w * 0.28f, h * 0.03f))
+            }
+            Shot.Tag -> {
+                // Care tag: a long white tag with size and text lines.
+                drawRect(Shirt)
+                drawRect(Color.White, topLeft = Offset(w * 0.34f, h * 0.18f), size = Size(w * 0.32f, h * 0.64f))
+                drawRect(Studio.Ink, topLeft = Offset(w * 0.42f, h * 0.24f), size = Size(w * 0.16f, h * 0.08f))
+                for (i in 0 until 5) {
+                    drawRect(Color(0xFFB8B2A7), topLeft = Offset(w * 0.39f, h * (0.38f + i * 0.08f)), size = Size(w * 0.22f, h * 0.025f))
+                }
+            }
+            Shot.Detail -> {
+                // Close-up of a zip.
+                drawRect(Shirt)
+                drawRect(ShirtDark, topLeft = Offset(w * 0.47f, 0f), size = Size(w * 0.06f, h))
+                var y = 0f
+                while (y < h) {
+                    drawRect(Color(0xFFC9C3B8), topLeft = Offset(w * 0.44f, y), size = Size(w * 0.06f, h * 0.025f))
+                    drawRect(Color(0xFFC9C3B8), topLeft = Offset(w * 0.50f, y + h * 0.03f), size = Size(w * 0.06f, h * 0.025f))
+                    y += h * 0.06f
+                }
+                drawRoundRect(
+                    Color(0xFFD9D3C8), topLeft = Offset(w * 0.42f, h * 0.55f), size = Size(w * 0.16f, h * 0.18f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.03f),
+                )
+            }
+            Shot.Flaw -> {
+                // Close-up of fabric with a stain, circled.
+                drawRect(Shirt)
+                drawCircle(Color(0xFF8C7A55), radius = w * 0.06f, center = Offset(w * 0.52f, h * 0.5f))
+                drawCircle(Color(0xFF8C7A55).copy(alpha = 0.5f), radius = w * 0.09f, center = Offset(w * 0.49f, h * 0.53f))
+                drawCircle(
+                    Studio.Accent, radius = w * 0.2f, center = Offset(w * 0.5f, h * 0.51f),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.025f),
+                )
+            }
+            Shot.Measure -> {
+                drawRect(Floor)
+                shirt(0.66f, shadow = true)
+                // A tape measure across the chest, with ticks.
+                val y = h * 0.5f
+                drawRect(Color(0xFFF2C14E), topLeft = Offset(w * 0.24f, y - h * 0.035f), size = Size(w * 0.52f, h * 0.07f))
+                var x = w * 0.26f
+                while (x < w * 0.75f) {
+                    drawLine(Studio.Ink, Offset(x, y - h * 0.035f), Offset(x, y - h * 0.005f), strokeWidth = w * 0.006f)
+                    x += w * 0.04f
+                }
+            }
+        }
     }
 }
 
