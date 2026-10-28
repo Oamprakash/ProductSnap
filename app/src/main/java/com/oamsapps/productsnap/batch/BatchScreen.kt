@@ -61,6 +61,7 @@ import com.oamsapps.productsnap.ui.InkButton
 import com.oamsapps.productsnap.ui.PaperButton
 import com.oamsapps.productsnap.ui.PaperIconButton
 import com.oamsapps.productsnap.ui.SectionLabel
+import com.oamsapps.productsnap.ui.firstUseTip
 import com.oamsapps.productsnap.ui.shareIntent
 import com.oamsapps.productsnap.ui.theme.Studio
 import kotlinx.coroutines.delay
@@ -152,8 +153,11 @@ fun BatchScreen(vm: BatchViewModel, onBack: () -> Unit, onOpenPaywall: () -> Uni
                 full { EmptyPrompt(limit = limit, onPick = pick, onUnlock = onOpenPaywall) }
             } else {
                 full { SectionLabel("Photos") }
+                // The first photo that needs a look carries the tip about fixing flagged photos.
+                val firstFlagged = state.items.indexOfFirst { needsLook(it) }
                 itemsIndexed(state.items, key = { _, item -> item.id }) { index, item ->
                     PhotoTile(
+                        tip = index == firstFlagged,
                         index = index,
                         item = item,
                         canRemove = state.canEdit,
@@ -233,7 +237,17 @@ private fun SettingsSummary(state: BatchState, enabled: Boolean, onChange: () ->
                     }
                 }
             }
-            TextButton(onClick = onChange, enabled = enabled) {
+            TextButton(
+                onClick = onChange,
+                enabled = enabled,
+                modifier = Modifier.firstUseTip(
+                    key = "batch_settings",
+                    title = "Same look for every photo",
+                    body = "Change sets the marketplace, background and light for the whole batch.",
+                    order = 1,
+                    active = enabled,
+                ),
+            ) {
                 Icon(Icons.Default.Tune, null, Modifier.size(18.dp), tint = if (enabled) Studio.Ink else Studio.Muted)
                 Spacer(Modifier.width(6.dp))
                 Text("Change", color = if (enabled) Studio.Ink else Studio.Muted)
@@ -441,8 +455,12 @@ private fun AddTile(count: Int, limit: Int, onClick: () -> Unit) {
     }
 }
 
+private fun needsLook(item: BatchItem) =
+    item.status is ItemStatus.Failed || item.status == ItemStatus.NoSubject || item.status == ItemStatus.NeedsLook ||
+        (item.status == ItemStatus.Saved && item.warnings.isNotEmpty())
+
 @Composable
-private fun PhotoTile(index: Int, item: BatchItem, canRemove: Boolean, onRemove: () -> Unit, onOpen: (() -> Unit)?) {
+private fun PhotoTile(index: Int, item: BatchItem, canRemove: Boolean, onRemove: () -> Unit, onOpen: (() -> Unit)?, tip: Boolean = false) {
     val thumb = remember(item.thumbnail) { item.thumbnail?.asImageBitmap() }
     val label = statusLabel(item.status, item.warnings)
     val problem = item.status is ItemStatus.Failed || item.status == ItemStatus.NoSubject || item.status == ItemStatus.NeedsLook
@@ -450,6 +468,13 @@ private fun PhotoTile(index: Int, item: BatchItem, canRemove: Boolean, onRemove:
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(
             Modifier
+                .firstUseTip(
+                    key = "batch_flagged",
+                    title = "Needs a look",
+                    body = "Photos marked ! may need a fix. Tap one to check it in the editor.",
+                    order = 2,
+                    active = tip,
+                )
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(18.dp))
                 .background(Studio.Chip)
