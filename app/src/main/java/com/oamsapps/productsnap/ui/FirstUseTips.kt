@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -42,6 +44,7 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -131,6 +134,11 @@ private val MaxWidth = 320.dp
 private fun TipBubble(target: FirstUseTips.Target, origin: Offset, onDismiss: () -> Unit) {
     val alpha = remember(target.key) { Animatable(0f) }
     LaunchedEffect(target.key) { alpha.animateTo(1f, tween(220)) }
+    // Keep the bubble clear of the status bar, navigation bar and keyboard.
+    val density = LocalDensity.current
+    val insets = WindowInsets.safeDrawing
+    val topInset = insets.getTop(density)
+    val bottomInset = insets.getBottom(density)
 
     Layout(
         modifier = Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha.value },
@@ -151,8 +159,11 @@ private fun TipBubble(target: FirstUseTips.Target, origin: Offset, onDismiss: ()
 
         val b = target.bounds.translate(-origin.x, -origin.y)
         val cx = b.center.x
-        // Below the feature when it fits, otherwise above it.
-        val below = b.bottom + gap + up.height + bubble.height + margin <= height
+        // The host fills the whole window (edge to edge), so system bar insets apply directly.
+        val minY = topInset + margin
+        val maxY = height - bottomInset - margin
+        // Below the feature when it fits above the navigation bar, otherwise above it.
+        val below = b.bottom + gap + up.height + bubble.height <= maxY
         val x = (cx - bubble.width / 2f).roundToInt().coerceIn(margin, (width - bubble.width - margin).coerceAtLeast(margin))
         val corner = 16.dp.roundToPx()
         val arrowX = (cx - up.width / 2f).roundToInt()
@@ -164,7 +175,7 @@ private fun TipBubble(target: FirstUseTips.Target, origin: Offset, onDismiss: ()
                 up.place(arrowX, arrowY)
                 bubble.place(x, arrowY + up.height - 1)
             } else {
-                val bubbleY = (b.top.roundToInt() - gap - down.height - bubble.height).coerceAtLeast(margin)
+                val bubbleY = (b.top.roundToInt() - gap - down.height - bubble.height).coerceAtLeast(minY)
                 bubble.place(x, bubbleY)
                 down.place(arrowX, bubbleY + bubble.height - 1)
             }
