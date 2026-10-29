@@ -144,6 +144,34 @@ jobs:
             --title "Play upload: ${GITHUB_SHA::7} (version code ${GITHUB_RUN_NUMBER})" \
             --notes "Signed with the upload key. Upload the .aab to Play Console > Internal testing. The release .apk installs directly to test the release build (uninstall debug builds first; uninstall it again before installing from Play)."
 
+      # Sends the signed bundle to Google Play. Needs the PLAY_SERVICE_ACCOUNT_JSON secret; skipped without it.
+      # Track: internal testing by default; set the repository variable PLAY_TRACK (e.g. "alpha" for closed
+      # testing) to change it. Release notes come from distribution/whatsnew/whatsnew-en-US.
+      - name: Check Google Play key
+        id: playkey
+        if: steps.bundle.outputs.aab != ''
+        env:
+          PLAY_KEY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -n "$PLAY_KEY" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=Google Play::No PLAY_SERVICE_ACCOUNT_JSON secret: skipping the upload to Play"
+          fi
+
+      - name: Upload to Google Play
+        if: steps.playkey.outputs.ok == 'true'
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.oamsapps.productsnap
+          releaseFiles: ${{ steps.bundle.outputs.aab }}
+          releaseName: ${{ github.run_number }}
+          track: ${{ vars.PLAY_TRACK || 'internal' }}
+          status: completed
+          whatsNewDirectory: distribution/whatsnew
+          mappingFile: app/build/outputs/mapping/release/mapping.txt
+
       - name: Publish branch build
         if: github.event_name == 'push'
         env:
