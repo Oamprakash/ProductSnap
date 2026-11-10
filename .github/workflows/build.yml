@@ -83,7 +83,12 @@ jobs:
       # The release build shrinks code with R8, which can break on libraries (ML Kit, Firebase, Billing): check it
       # compiles on every push, unsigned, before it matters.
       - name: Release build compiles (R8)
-        run: gradle :app:bundleRelease --stacktrace
+        run: |
+          set -o pipefail
+          gradle :app:bundleRelease --stacktrace 2>&1 | tee release.log || {
+            grep -E '^e: |^ERROR|Missing class|What went wrong|^> |Execution failed' release.log | head -30 | sed 's/^/::error::/'
+            exit 1
+          }
 
       # Signed bundle for Play, built on main only when the upload key secrets are set.
       - name: Build signed release bundle
