@@ -86,7 +86,7 @@ jobs:
         run: |
           set -o pipefail
           gradle :app:bundleRelease --stacktrace 2>&1 | tee release.log || {
-            grep -E '^e: |^ERROR|Missing class|What went wrong|^> |Execution failed' release.log | head -30 | sed 's/^/::error::/'
+            grep -E '^e: |ERROR|rror:|Missing class|What went wrong|Execution failed|^  > |Caused by' release.log | grep -v '> Task' | head -40 | sed 's/^/::error::/'
             exit 1
           }
 
