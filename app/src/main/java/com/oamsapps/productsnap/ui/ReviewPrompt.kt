@@ -3,13 +3,15 @@ package com.oamsapps.productsnap.ui
 import android.app.Activity
 import android.content.Context
 import android.util.Log
+import com.google.android.gms.tasks.Task
 import com.google.android.play.core.review.ReviewManagerFactory
-import com.google.android.play.core.ktx.launchReview
-import com.google.android.play.core.ktx.requestReview
 import com.oamsapps.productsnap.telemetry.Telemetry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * Asks for a Play Store rating at a happy moment: right after photos are saved, once the user has saved enough
@@ -61,9 +63,16 @@ object ReviewPrompt {
             .apply()
         runCatching {
             val manager = ReviewManagerFactory.create(activity)
-            val info = manager.requestReview()
-            manager.launchReview(activity, info)
+            val info = manager.requestReviewFlow().await()
+            manager.launchReviewFlow(activity, info).await()
             Telemetry.event("review_prompt_shown")
         }.onFailure { Log.w("ReviewPrompt", "In-app review unavailable", it) }
+    }
+
+    private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { cont ->
+        addOnCompleteListener { task ->
+            val error = task.exception
+            if (error != null) cont.resumeWithException(error) else cont.resume(task.result)
+        }
     }
 }
