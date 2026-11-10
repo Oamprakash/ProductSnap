@@ -34,6 +34,7 @@ import com.oamsapps.productsnap.image.background.BackgroundStyle
 import com.oamsapps.productsnap.image.erase.EraseStroke
 import com.oamsapps.productsnap.image.erase.MagicEraser
 import com.oamsapps.productsnap.telemetry.Telemetry
+import com.oamsapps.productsnap.ui.ReviewPrompt
 import com.oamsapps.productsnap.telemetry.kind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Deferred
@@ -757,6 +758,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 uris
             }.onSuccess { uris ->
                 if (freeSave) FreeAllowance.markUsed(getApplication())
+                ReviewPrompt.recordSaved(getApplication(), uris.size)
                 Telemetry.event(
                     if (share) "photos_shared" else "photo_saved",
                     "source" to "editor",

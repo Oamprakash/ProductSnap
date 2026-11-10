@@ -1,5 +1,6 @@
 package com.oamsapps.productsnap.batch
 
+import com.oamsapps.productsnap.ui.ReviewPrompt
 import android.util.Log
 import com.oamsapps.productsnap.image.BackgroundRemover
 import com.oamsapps.productsnap.image.LightStrength
@@ -127,6 +128,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
                 if (wasRunning == true && !running) {
                     val s = _state.value
                     _state.update { it.copy(message = "Saved ${s.savedCount} of ${s.items.size} photos to Pictures/ProductSnap") }
+                    ReviewPrompt.recordSaved(getApplication(), s.savedCount)
                 }
                 wasRunning = running
             }

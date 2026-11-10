@@ -58,6 +58,7 @@ android {
         release {
             signingConfigs.findByName("upload")?.let { signingConfig = it }
             isMinifyEnabled = true
+            isShrinkResources = true
             // Native symbols from libraries (ML Kit, Crashlytics) go in the bundle, so Play can symbolise native crashes.
             ndk { debugSymbolLevel = "SYMBOL_TABLE" }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
@@ -105,6 +106,8 @@ dependencies {
 
     // Premium subscription
     implementation("com.android.billingclient:billing-ktx:8.3.0")
+    // In-app review sheet (asks for a Play rating after a few saved photos).
+    implementation("com.google.android.play:review-ktx:2.0.2")
 
     // Crash reports and usage events (active only with google-services.json; see the top of this file)
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
