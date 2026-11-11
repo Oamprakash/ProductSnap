@@ -345,6 +345,8 @@
     <string name="no_product_desc">Nessun prodotto trovato. Tocca per aprire nell\'editor</string>
     <string name="needs_look_desc">Da controllare: lo scontorno non è riuscito. Tocca per correggerlo nell\'editor</string>
     <string name="new_batch">Nuovo gruppo</string>
+    <string name="share_app">Condividi ProductSnap</string>
+    <string name="share_app_text">Uso ProductSnap per sistemare le foto dei miei annunci. È gratis: %1$s</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d foto salvate (con %2$d primo piano) in Pictures/ProductSnap</item>
         <item quantity="other">%1$d foto salvate (con %2$d primi piani) in Pictures/ProductSnap</item>

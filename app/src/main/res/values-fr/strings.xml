@@ -345,6 +345,8 @@
     <string name="no_product_desc">Aucun article détecté. Touchez pour ouvrir dans l\'éditeur</string>
     <string name="needs_look_desc">À vérifier : le détourage a échoué. Touchez pour corriger dans l\'éditeur</string>
     <string name="new_batch">Nouveau lot</string>
+    <string name="share_app">Partager ProductSnap</string>
+    <string name="share_app_text">J\'utilise ProductSnap pour soigner mes photos d\'annonce. C\'est gratuit : %1$s</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d photos enregistrées (dont %2$d gros plan) dans Pictures/ProductSnap</item>
         <item quantity="other">%1$d photos enregistrées (dont %2$d gros plans) dans Pictures/ProductSnap</item>

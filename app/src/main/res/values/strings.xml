@@ -346,6 +346,8 @@
     <string name="no_product_desc">No product found. Tap to open in the editor</string>
     <string name="needs_look_desc">Needs a look: the cutout came out wrong. Tap to fix in the editor</string>
     <string name="new_batch">New batch</string>
+    <string name="share_app">Share ProductSnap</string>
+    <string name="share_app_text">I use ProductSnap to clean up my listing photos. It\'s free: %1$s</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">Saved %1$d photos (with %2$d close-up) to Pictures/ProductSnap</item>
         <item quantity="other">Saved %1$d photos (with %2$d close-ups) to Pictures/ProductSnap</item>

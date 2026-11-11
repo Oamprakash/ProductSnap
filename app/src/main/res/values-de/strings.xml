@@ -345,6 +345,8 @@
     <string name="no_product_desc">Kein Artikel gefunden. Tippen, um im Editor zu öffnen</string>
     <string name="needs_look_desc">Bitte prüfen: Das Freistellen ist misslungen. Tippen, um im Editor zu korrigieren</string>
     <string name="new_batch">Neuer Stapel</string>
+    <string name="share_app">ProductSnap teilen</string>
+    <string name="share_app_text">Ich nutze ProductSnap für saubere Angebotsfotos. Es ist kostenlos: %1$s</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d Fotos (mit %2$d Nahaufnahme) in Pictures/ProductSnap gespeichert</item>
         <item quantity="other">%1$d Fotos (mit %2$d Nahaufnahmen) in Pictures/ProductSnap gespeichert</item>

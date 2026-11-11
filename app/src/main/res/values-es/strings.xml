@@ -345,6 +345,8 @@
     <string name="no_product_desc">Sin producto detectado. Toca para abrir en el editor</string>
     <string name="needs_look_desc">Revisar: el recorte salió mal. Toca para corregirlo en el editor</string>
     <string name="new_batch">Nuevo lote</string>
+    <string name="share_app">Compartir ProductSnap</string>
+    <string name="share_app_text">Uso ProductSnap para mejorar las fotos de mis anuncios. Es gratis: %1$s</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d fotos guardadas (con %2$d primer plano) en Pictures/ProductSnap</item>
         <item quantity="other">%1$d fotos guardadas (con %2$d primeros planos) en Pictures/ProductSnap</item>

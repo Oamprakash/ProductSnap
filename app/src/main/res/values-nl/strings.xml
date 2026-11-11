@@ -345,6 +345,8 @@
     <string name="no_product_desc">Geen product gevonden. Tik om te openen in de editor</string>
     <string name="needs_look_desc">Controleren: de uitsnede is mislukt. Tik om bij te werken in de editor</string>
     <string name="new_batch">Nieuwe reeks</string>
+    <string name="share_app">ProductSnap delen</string>
+    <string name="share_app_text">Ik gebruik ProductSnap om mijn advertentiefoto\'s strak te maken. Het is gratis: %1$s</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d foto\'s (met %2$d close-up) opgeslagen in Pictures/ProductSnap</item>
         <item quantity="other">%1$d foto\'s (met %2$d close-ups) opgeslagen in Pictures/ProductSnap</item>
