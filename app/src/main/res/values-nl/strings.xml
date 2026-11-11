@@ -220,7 +220,7 @@
     <string name="undo_last_edit">Laatste bewerking ongedaan maken</string>
     <string name="choose_another_photo">Andere foto kiezen</string>
     <string name="edit_many_photos">Veel foto\'s bewerken</string>
-    <string name="reset">Herstellen</string>
+    <string name="reset">Terugzetten</string>
     <string name="done">Klaar</string>
     <string name="cancel">Annuleren</string>
     <string name="apply_crop">Bijsnijden toepassen</string>
@@ -309,7 +309,7 @@
     <string name="see_premium">Premium bekijken</string>
     <string name="photos">Foto\'s</string>
     <string name="home">Start</string>
-    <string name="clear">Wissen</string>
+    <string name="clear">Leegmaken</string>
     <string name="every_photo_gets">Elke foto krijgt</string>
     <string name="tip_batch_settings_title">Dezelfde look voor elke foto</string>
     <string name="tip_batch_settings_body">Wijzigen stelt het platform, de achtergrond en het licht in voor de hele reeks.</string>
