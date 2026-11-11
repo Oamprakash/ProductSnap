@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.image.background
 
+import androidx.annotation.StringRes
+import com.oamsapps.productsnap.R
 import android.graphics.Color
 import org.json.JSONObject
 
@@ -22,28 +24,28 @@ sealed interface BackgroundStyle {
     val isPlainColor get() = this is Solid
 }
 
-data class BackgroundPreset(val label: String, val style: BackgroundStyle)
+data class BackgroundPreset(@StringRes val label: Int, val style: BackgroundStyle)
 
 object BackgroundPresets {
     val WHITE = BackgroundStyle.Solid(0xFFFFFFFF.toInt())
 
     val solids = listOf(
-        BackgroundPreset("White", WHITE),
-        BackgroundPreset("Light grey", BackgroundStyle.Solid(0xFFF2F2F2.toInt())),
-        BackgroundPreset("Cream", BackgroundStyle.Solid(0xFFFFF4E0.toInt())),
-        BackgroundPreset("Pale blue", BackgroundStyle.Solid(0xFFE6F0FF.toInt())),
-        BackgroundPreset("Charcoal", BackgroundStyle.Solid(0xFF1F1F1F.toInt())),
-        BackgroundPreset("Transparent", BackgroundStyle.Solid(0x00000000)),
+        BackgroundPreset(R.string.bg_white, WHITE),
+        BackgroundPreset(R.string.bg_light_grey, BackgroundStyle.Solid(0xFFF2F2F2.toInt())),
+        BackgroundPreset(R.string.bg_cream, BackgroundStyle.Solid(0xFFFFF4E0.toInt())),
+        BackgroundPreset(R.string.bg_pale_blue, BackgroundStyle.Solid(0xFFE6F0FF.toInt())),
+        BackgroundPreset(R.string.bg_charcoal, BackgroundStyle.Solid(0xFF1F1F1F.toInt())),
+        BackgroundPreset(R.string.bg_transparent, BackgroundStyle.Solid(0x00000000)),
     )
 
     val scenes = listOf(
-        BackgroundPreset("Studio light", BackgroundStyle.Studio(0xFFFFFFFF.toInt(), 0xFFD9DCE1.toInt())),
-        BackgroundPreset("Warm studio", BackgroundStyle.Studio(0xFFFFF6EA.toInt(), 0xFFE3CDB5.toInt())),
-        BackgroundPreset("Dark studio", BackgroundStyle.Studio(0xFF4A4F5A.toInt(), 0xFF16181D.toInt())),
-        BackgroundPreset("Blush gradient", BackgroundStyle.Gradient(0xFFFFE5EC.toInt(), 0xFFFFC2D1.toInt())),
-        BackgroundPreset("Sky gradient", BackgroundStyle.Gradient(0xFFE0F2FF.toInt(), 0xFFFFFFFF.toInt())),
-        BackgroundPreset("Mint gradient", BackgroundStyle.Gradient(0xFFE3F9F1.toInt(), 0xFFC7EFE0.toInt())),
-        BackgroundPreset("Sunset gradient", BackgroundStyle.Gradient(0xFFFFE7C2.toInt(), 0xFFFFB997.toInt())),
+        BackgroundPreset(R.string.bg_studio_light, BackgroundStyle.Studio(0xFFFFFFFF.toInt(), 0xFFD9DCE1.toInt())),
+        BackgroundPreset(R.string.bg_warm_studio, BackgroundStyle.Studio(0xFFFFF6EA.toInt(), 0xFFE3CDB5.toInt())),
+        BackgroundPreset(R.string.bg_dark_studio, BackgroundStyle.Studio(0xFF4A4F5A.toInt(), 0xFF16181D.toInt())),
+        BackgroundPreset(R.string.bg_blush, BackgroundStyle.Gradient(0xFFFFE5EC.toInt(), 0xFFFFC2D1.toInt())),
+        BackgroundPreset(R.string.bg_sky, BackgroundStyle.Gradient(0xFFE0F2FF.toInt(), 0xFFFFFFFF.toInt())),
+        BackgroundPreset(R.string.bg_mint, BackgroundStyle.Gradient(0xFFE3F9F1.toInt(), 0xFFC7EFE0.toInt())),
+        BackgroundPreset(R.string.bg_sunset, BackgroundStyle.Gradient(0xFFFFE7C2.toInt(), 0xFFFFB997.toInt())),
     )
 }
 

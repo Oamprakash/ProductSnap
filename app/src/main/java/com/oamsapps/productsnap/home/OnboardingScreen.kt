@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.home
 
+import androidx.compose.ui.res.stringResource
+import com.oamsapps.productsnap.R
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,13 +41,14 @@ import com.oamsapps.productsnap.ui.theme.DisplayFont
 import com.oamsapps.productsnap.ui.theme.Studio
 
 /** What each choice means for the photos, in the seller's words. null = somewhere else. */
+@Composable
 private fun spec(m: Marketplace?) = when (m) {
-    Marketplace.EBAY -> "Square, white background, no watermark"
-    Marketplace.VINTED -> "4:5 portrait, your real background"
-    Marketplace.POSHMARK -> "Square, clean background"
-    Marketplace.DEPOP -> "Square, clean background"
-    Marketplace.ETSY -> "Landscape 4:3, 2000 px tall"
-    null -> "Keep the photo's own shape"
+    Marketplace.EBAY -> stringResource(R.string.spec_ebay)
+    Marketplace.VINTED -> stringResource(R.string.spec_vinted)
+    Marketplace.POSHMARK -> stringResource(R.string.spec_square_clean)
+    Marketplace.DEPOP -> stringResource(R.string.spec_square_clean)
+    Marketplace.ETSY -> stringResource(R.string.spec_etsy)
+    null -> stringResource(R.string.spec_any)
 }
 
 private val Choices: List<Marketplace?> =
@@ -64,12 +67,12 @@ fun OnboardingScreen(initial: List<Marketplace?>, onDone: (List<Marketplace?>) -
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onSkip) { Text("Skip", color = Studio.Muted) }
+            TextButton(onClick = onSkip) { Text(stringResource(R.string.skip), color = Studio.Muted) }
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Where do you sell?", style = MaterialTheme.typography.displaySmall)
+            Text(stringResource(R.string.where_do_you_sell), style = MaterialTheme.typography.displaySmall)
             Text(
-                "Every photo comes out sized and framed for it. Pick all that apply; switch any time.",
+                stringResource(R.string.where_do_you_sell_body),
                 style = MaterialTheme.typography.bodyLarge,
                 color = Studio.Muted,
             )
@@ -81,7 +84,7 @@ fun OnboardingScreen(initial: List<Marketplace?>, onDone: (List<Marketplace?>) -
             Choices.forEach { m ->
                 val on = m in picked
                 MarketRow(
-                    name = m?.label ?: "Somewhere else",
+                    name = m?.label ?: stringResource(R.string.somewhere_else),
                     initial = m?.label?.take(1) ?: "+",
                     spec = spec(m),
                     selected = on,
@@ -90,7 +93,7 @@ fun OnboardingScreen(initial: List<Marketplace?>, onDone: (List<Marketplace?>) -
             }
         }
         AccentButton(
-            text = "Continue",
+            text = stringResource(R.string.continue_label),
             icon = Icons.AutoMirrored.Filled.ArrowForward,
             enabled = picked.isNotEmpty(),
             onClick = { onDone(Choices.filter { it in picked }) },

@@ -1,5 +1,9 @@
 package com.oamsapps.productsnap.batch
 
+import com.oamsapps.productsnap.ui.text
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.oamsapps.productsnap.R
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -101,12 +105,13 @@ fun BatchScreen(vm: BatchViewModel, onBack: () -> Unit, onOpenPaywall: () -> Uni
         if (needsPermission) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) else vm.start()
     }
 
+    val seePremium = stringResource(R.string.see_premium)
     LaunchedEffect(state.message) {
         val message = state.message ?: return@LaunchedEffect
         val offerUpgrade = state.messageOffersUpgrade
         val result = snackbar.showSnackbar(
             message = message,
-            actionLabel = if (offerUpgrade) "See Premium" else null,
+            actionLabel = if (offerUpgrade) seePremium else null,
             duration = if (offerUpgrade) SnackbarDuration.Long else SnackbarDuration.Short,
         )
         if (result == SnackbarResult.ActionPerformed) onOpenPaywall()
@@ -152,7 +157,7 @@ fun BatchScreen(vm: BatchViewModel, onBack: () -> Unit, onOpenPaywall: () -> Uni
             if (state.items.isEmpty() && !state.isImporting) {
                 full { EmptyPrompt(limit = limit, onPick = pick, onUnlock = onOpenPaywall) }
             } else {
-                full { SectionLabel("Photos") }
+                full { SectionLabel(stringResource(R.string.photos)) }
                 // The first photo that needs a look carries the tip about fixing flagged photos.
                 val firstFlagged = state.items.indexOfFirst { needsLook(it) }
                 itemsIndexed(state.items, key = { _, item -> item.id }) { index, item ->
@@ -187,19 +192,17 @@ private fun androidx.compose.foundation.lazy.grid.LazyGridScope.full(content: @C
 private fun Header(count: Int, market: String?, canClear: Boolean, onBack: () -> Unit, onClear: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PaperIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Home", onBack)
+            PaperIconButton(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.home), onBack)
             Spacer(Modifier.weight(1f))
             BuildTag()
-            if (canClear) TextButton(onClick = onClear) { Text("Clear", color = Studio.Ink) }
+            if (canClear) TextButton(onClick = onClear) { Text(stringResource(R.string.clear), color = Studio.Ink) }
         }
         Column {
-            Text("Batch", style = MaterialTheme.typography.displaySmall)
+            Text(stringResource(R.string.batch), style = MaterialTheme.typography.displaySmall)
+            val countText = if (count == 0) stringResource(R.string.no_photos_yet) else pluralStringResource(R.plurals.photo_count, count, count)
+            val marketText = if (market != null) stringResource(R.string.for_market, market) else stringResource(R.string.any_marketplace_lower)
             Text(
-                buildString {
-                    append(if (count == 0) "No photos yet" else "$count photo${if (count == 1) "" else "s"}")
-                    append(" · ")
-                    append(if (market != null) "for $market" else "any marketplace")
-                },
+                stringResource(R.string.count_dot_market, countText, marketText),
                 style = MaterialTheme.typography.bodyLarge,
                 color = Studio.Muted,
             )
@@ -211,24 +214,24 @@ private fun Header(count: Int, market: String?, canClear: Boolean, onBack: () ->
 @Composable
 private fun SettingsSummary(state: BatchState, enabled: Boolean, onChange: () -> Unit) {
     val natural = state.background == BackgroundStyle.Natural
-    val parts = buildList {
-        add(state.marketplace?.label ?: if (state.squareCanvas) "Square" else "Own shape")
-        add(
+    val parts = listOfNotNull(
+        state.marketplace?.label ?: stringResource(if (state.squareCanvas) R.string.square else R.string.own_shape),
+        stringResource(
             when {
-                natural -> "Real background"
-                state.removeBackground -> "Background removed"
-                else -> "Original background"
+                natural -> R.string.real_background
+                state.removeBackground -> R.string.background_removed
+                else -> R.string.original_background
             }
-        )
-        if (state.removeBackground && !natural && state.shadow) add("Shadow")
-        add(if (state.lightStrength == LightStrength.OFF) "Light off" else "Light ${state.lightStrength.label}")
-        if (state.crop != BatchCrop.NONE) add("Crop ${state.crop.label}")
-        if (!state.adjustments.slidersNeutral) add("Editor sliders")
-    }
+        ),
+        if (state.removeBackground && !natural && state.shadow) stringResource(R.string.shadow) else null,
+        if (state.lightStrength == LightStrength.OFF) stringResource(R.string.light_off) else stringResource(R.string.light_level, state.lightStrength.text()),
+        if (state.crop != BatchCrop.NONE) stringResource(R.string.crop_level, state.crop.text()) else null,
+        if (!state.adjustments.slidersNeutral) stringResource(R.string.editor_sliders) else null,
+    )
     Surface(shape = RoundedCornerShape(20.dp), color = Studio.Card, border = BorderStroke(1.dp, Studio.Line), modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionLabel("Every photo gets")
+                SectionLabel(stringResource(R.string.every_photo_gets))
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     parts.forEach { p ->
                         Surface(shape = RoundedCornerShape(999.dp), color = Studio.Chip) {
@@ -242,15 +245,15 @@ private fun SettingsSummary(state: BatchState, enabled: Boolean, onChange: () ->
                 enabled = enabled,
                 modifier = Modifier.firstUseTip(
                     key = "batch_settings",
-                    title = "Same look for every photo",
-                    body = "Change sets the marketplace, background and light for the whole batch.",
+                    title = stringResource(R.string.tip_batch_settings_title),
+                    body = stringResource(R.string.tip_batch_settings_body),
                     order = 1,
                     active = enabled,
                 ),
             ) {
                 Icon(Icons.Default.Tune, null, Modifier.size(18.dp), tint = if (enabled) Studio.Ink else Studio.Muted)
                 Spacer(Modifier.width(6.dp))
-                Text("Change", color = if (enabled) Studio.Ink else Studio.Muted)
+                Text(stringResource(R.string.change), color = if (enabled) Studio.Ink else Studio.Muted)
             }
         }
     }
@@ -264,13 +267,13 @@ private fun SettingsSheet(state: BatchState, vm: BatchViewModel, premium: Boolea
         Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text("Every photo gets", style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(R.string.every_photo_gets), style = MaterialTheme.typography.headlineSmall)
         MarketplacePicker(state.marketplace, enabled, premium, vm::setMarketplace)
-        if (state.marketplace == null) SettingSwitch("Square", state.squareCanvas, enabled, vm::setSquare)
-        SettingSwitch("Remove background", state.removeBackground, enabled, vm::setRemoveBackground)
-        if (state.removeBackground && !natural) SettingSwitch("Shadow under product", state.shadow, enabled, vm::setShadow)
+        if (state.marketplace == null) SettingSwitch(stringResource(R.string.square), state.squareCanvas, enabled, vm::setSquare)
+        SettingSwitch(stringResource(R.string.remove_background), state.removeBackground, enabled, vm::setRemoveBackground)
+        if (state.removeBackground && !natural) SettingSwitch(stringResource(R.string.shadow_under_product), state.shadow, enabled, vm::setShadow)
         LightStrengthPicker(state.lightStrength, enabled, vm::setLightStrength)
-        SectionLabel("Background")
+        SectionLabel(stringResource(R.string.background))
         BackgroundPicker(
             selected = state.background,
             photoThumb = state.backgroundThumb,
@@ -284,22 +287,22 @@ private fun SettingsSheet(state: BatchState, vm: BatchViewModel, premium: Boolea
         if (!state.adjustments.slidersNeutral) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Brightness and contrast from the editor",
+                    stringResource(R.string.editor_sliders_note),
                     style = MaterialTheme.typography.bodySmall,
                     color = Studio.Muted,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = vm::clearAdjustments, enabled = enabled) { Text("Remove", color = Studio.Ink) }
+                TextButton(onClick = vm::clearAdjustments, enabled = enabled) { Text(stringResource(R.string.remove), color = Studio.Ink) }
             }
         }
-        InkButton("Done", onDone, Modifier.fillMaxWidth())
+        InkButton(stringResource(R.string.done), onDone, Modifier.fillMaxWidth())
     }
 }
 
 @Composable
 private fun CropChips(state: BatchState, enabled: Boolean, onSelect: (BatchCrop) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        SectionLabel("Crop")
+        SectionLabel(stringResource(R.string.crop))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
             BatchCrop.entries.forEach { crop ->
                 // "Fit product" needs the cutout to know where the product is.
@@ -308,21 +311,21 @@ private fun CropChips(state: BatchState, enabled: Boolean, onSelect: (BatchCrop)
                     selected = state.crop == crop,
                     onClick = { onSelect(crop) },
                     enabled = enabled && available,
-                    label = { Text(crop.label) },
+                    label = { Text(crop.text()) },
                 )
             }
         }
         val note = when {
             state.background == BackgroundStyle.Natural ->
-                "With Natural, each photo is framed around the product instead; this crop isn't used."
+                stringResource(R.string.crop_note_natural)
             state.crop == BatchCrop.TIGHT && !state.removeBackground ->
-                "Turn on Remove background to fit the crop to the product."
+                stringResource(R.string.crop_note_needs_cutout)
             state.crop == BatchCrop.TIGHT ->
-                "Trims empty space so every product fills the frame the same way."
+                stringResource(R.string.crop_note_tight)
             state.crop.aspect != null && state.removeBackground ->
-                "Each crop is centred on the product."
+                stringResource(R.string.crop_note_centred)
             state.crop.aspect != null && state.squareCanvas && state.crop != BatchCrop.SQUARE ->
-                "Square adds padding around the crop."
+                stringResource(R.string.crop_note_square)
             else -> null
         }
         note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Studio.Muted) }
@@ -347,14 +350,14 @@ private fun PlanStrip(freeAvailable: Boolean, onUnlock: () -> Unit) {
     Surface(shape = RoundedCornerShape(18.dp), color = Studio.Chip, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(if (freeAvailable) "Free: 1 photo, with a watermark" else "Free photo used", style = MaterialTheme.typography.titleSmall)
+                Text(if (freeAvailable) stringResource(R.string.free_one_photo) else stringResource(R.string.free_photo_used), style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "Premium: batches of ${PremiumManager.PREMIUM_BATCH_LIMIT}, no watermark",
+                    stringResource(R.string.premium_batches_note, PremiumManager.PREMIUM_BATCH_LIMIT),
                     style = MaterialTheme.typography.bodySmall,
                     color = Studio.Muted,
                 )
             }
-            TextButton(onClick = onUnlock) { Text("Go Premium", color = Studio.Ink) }
+            TextButton(onClick = onUnlock) { Text(stringResource(R.string.go_premium), color = Studio.Ink) }
         }
     }
 }
@@ -387,10 +390,10 @@ private fun ProgressCard(state: BatchState) {
                 Spacer(Modifier.weight(1f))
                 Text(
                     when {
-                        !state.isRunning -> "Done"
-                        eta == null -> "Starting…"
-                        eta < 60 -> "About ${eta}s left"
-                        else -> "About ${(eta + 30) / 60} min left"
+                        !state.isRunning -> stringResource(R.string.done)
+                        eta == null -> stringResource(R.string.starting)
+                        eta < 60 -> stringResource(R.string.eta_seconds, eta)
+                        else -> stringResource(R.string.eta_minutes, (eta + 30) / 60)
                     },
                     style = MaterialTheme.typography.labelLarge,
                     color = if (state.isRunning) Studio.Accent else Studio.Paper,
@@ -403,8 +406,8 @@ private fun ProgressCard(state: BatchState) {
                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(999.dp)),
             )
             Text(
-                if (state.isRunning) "You can leave the app; progress shows in your notifications."
-                else state.timing?.takeIf { com.oamsapps.productsnap.BuildConfig.DEBUG } ?: "${state.savedUris.size} saved to your gallery.",
+                if (state.isRunning) stringResource(R.string.batch_leave_note)
+                else state.timing?.takeIf { com.oamsapps.productsnap.BuildConfig.DEBUG } ?: stringResource(R.string.saved_to_gallery, state.savedUris.size),
                 style = MaterialTheme.typography.bodySmall,
                 color = Studio.StageMuted,
             )
@@ -419,15 +422,15 @@ private fun EmptyPrompt(limit: Int, onPick: () -> Unit, onUnlock: () -> Unit) {
             Icon(Icons.Default.AddPhotoAlternate, null, Modifier.size(36.dp), tint = Studio.Ink)
             Text(
                 when (limit) {
-                    0 -> "You've used your free photo. Premium edits whole batches without a watermark."
-                    1 -> "Pick a photo to try it free. It's saved with the settings above, with a watermark."
-                    else -> "Pick up to $limit photos. Each one is saved with the settings above."
+                    0 -> stringResource(R.string.empty_free_used)
+                    1 -> stringResource(R.string.empty_free_one)
+                    else -> stringResource(R.string.pick_up_to, limit)
                 },
                 style = MaterialTheme.typography.bodyLarge,
                 color = Studio.Muted,
             )
-            if (limit == 0) AccentButton("See Premium plans", onUnlock, Modifier.fillMaxWidth())
-            else AccentButton(if (limit == 1) "Choose a photo" else "Choose photos", onPick, Modifier.fillMaxWidth(), icon = Icons.Default.Add)
+            if (limit == 0) AccentButton(stringResource(R.string.see_premium_plans), onUnlock, Modifier.fillMaxWidth())
+            else AccentButton(if (limit == 1) stringResource(R.string.choose_a_photo) else stringResource(R.string.choose_photos), onPick, Modifier.fillMaxWidth(), icon = Icons.Default.Add)
         }
     }
 }
@@ -436,7 +439,7 @@ private fun EmptyPrompt(limit: Int, onPick: () -> Unit, onUnlock: () -> Unit) {
 private fun ImportingRow() {
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         LinearProgressIndicator(Modifier.fillMaxWidth(), color = Studio.Accent, trackColor = Studio.Line)
-        Text("Adding photos…", style = MaterialTheme.typography.bodySmall, color = Studio.Muted)
+        Text(stringResource(R.string.adding_photos), style = MaterialTheme.typography.bodySmall, color = Studio.Muted)
     }
 }
 
@@ -446,11 +449,11 @@ private fun AddTile(count: Int, limit: Int, onClick: () -> Unit) {
         shape = RoundedCornerShape(18.dp),
         color = Color.Transparent,
         border = BorderStroke(2.dp, Studio.Line),
-        modifier = Modifier.aspectRatio(1f).clip(RoundedCornerShape(18.dp)).clickable(role = Role.Button, onClickLabel = "Add photos", onClick = onClick),
+        modifier = Modifier.aspectRatio(1f).clip(RoundedCornerShape(18.dp)).clickable(role = Role.Button, onClickLabel = stringResource(R.string.add_photos), onClick = onClick),
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(Icons.Default.Add, null, tint = Studio.Ink)
-            Text("$count of $limit", style = MaterialTheme.typography.labelMedium, color = Studio.Muted)
+            Text(stringResource(R.string.count_of_limit, count, limit), style = MaterialTheme.typography.labelMedium, color = Studio.Muted)
         }
     }
 }
@@ -465,13 +468,14 @@ private fun PhotoTile(index: Int, item: BatchItem, canRemove: Boolean, onRemove:
     val label = statusLabel(item.status, item.warnings)
     val problem = item.status is ItemStatus.Failed || item.status == ItemStatus.NoSubject || item.status == ItemStatus.NeedsLook
     val warn = item.status == ItemStatus.Saved && item.warnings.isNotEmpty()
+    val description = stringResource(R.string.photo_n_desc, index + 1, label)
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(
             Modifier
                 .firstUseTip(
                     key = "batch_flagged",
-                    title = "Needs a look",
-                    body = "Photos marked ! may need a fix. Tap one to check it in the editor.",
+                    title = stringResource(R.string.needs_a_look),
+                    body = stringResource(R.string.tip_flagged_body),
                     order = 2,
                     active = tip,
                 )
@@ -479,8 +483,8 @@ private fun PhotoTile(index: Int, item: BatchItem, canRemove: Boolean, onRemove:
                 .clip(RoundedCornerShape(18.dp))
                 .background(Studio.Chip)
                 .then(if (problem || warn) Modifier.border(2.dp, if (problem) Studio.Accent else Studio.OnWarn.copy(alpha = 0.5f), RoundedCornerShape(18.dp)) else Modifier)
-                .semantics { contentDescription = "Photo ${index + 1}. $label" }
-                .then(if (onOpen != null) Modifier.clickable(onClickLabel = "Open in the editor", onClick = onOpen) else Modifier),
+                .semantics { contentDescription = description }
+                .then(if (onOpen != null) Modifier.clickable(onClickLabel = stringResource(R.string.open_in_editor), onClick = onOpen) else Modifier),
         ) {
             thumb?.let { Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
             if (item.status == ItemStatus.Working) {
@@ -498,8 +502,8 @@ private fun PhotoTile(index: Int, item: BatchItem, canRemove: Boolean, onRemove:
                             shape = CircleShape,
                             color = Studio.Ink.copy(alpha = 0.7f),
                             contentColor = Studio.Paper,
-                            modifier = Modifier.size(28.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = "Remove from batch", onClick = onRemove),
-                        ) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Close, "Remove photo ${index + 1}", Modifier.size(16.dp)) } }
+                            modifier = Modifier.size(28.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = stringResource(R.string.remove_from_batch), onClick = onRemove),
+                        ) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Close, stringResource(R.string.remove_photo_n, index + 1), Modifier.size(16.dp)) } }
                 }
             }
         }
@@ -516,25 +520,27 @@ private fun StatusBadge(bg: Color, fg: Color, content: @Composable () -> Unit) {
     }
 }
 
+@Composable
 private fun shortLabel(status: ItemStatus, warnings: List<PhotoWarning>) = when (status) {
-    ItemStatus.Saved -> if (PhotoWarning.RUNS_OFF_EDGE in warnings) "Check edges" else "Very dark"
-    ItemStatus.NoSubject -> "No product found"
-    ItemStatus.NeedsLook -> "Needs a look"
-    is ItemStatus.Failed -> "Not saved"
+    ItemStatus.Saved -> if (PhotoWarning.RUNS_OFF_EDGE in warnings) stringResource(R.string.check_edges) else stringResource(R.string.very_dark)
+    ItemStatus.NoSubject -> stringResource(R.string.no_product_found)
+    ItemStatus.NeedsLook -> stringResource(R.string.needs_a_look)
+    is ItemStatus.Failed -> stringResource(R.string.not_saved)
     else -> ""
 }
 
+@Composable
 private fun statusLabel(status: ItemStatus, warnings: List<PhotoWarning>) = when (status) {
-    ItemStatus.Pending -> "Ready"
-    ItemStatus.Working -> "Saving…"
+    ItemStatus.Pending -> stringResource(R.string.ready)
+    ItemStatus.Working -> stringResource(R.string.saving)
     ItemStatus.Saved -> when {
-        PhotoWarning.RUNS_OFF_EDGE in warnings -> "Saved. The cutout may include background at the photo's edge. Tap to check"
-        PhotoWarning.TOO_DARK in warnings -> "Saved. Very dark photo, so the cutout may be rough. Tap to check"
-        else -> "Saved"
+        PhotoWarning.RUNS_OFF_EDGE in warnings -> stringResource(R.string.saved_edge_desc)
+        PhotoWarning.TOO_DARK in warnings -> stringResource(R.string.saved_dark_desc)
+        else -> stringResource(R.string.saved)
     }
-    ItemStatus.NoSubject -> "No product found. Tap to open in the editor"
-    ItemStatus.NeedsLook -> "Needs a look: the cutout came out wrong. Tap to fix in the editor"
-    is ItemStatus.Failed -> "Not saved: ${status.reason}"
+    ItemStatus.NoSubject -> stringResource(R.string.no_product_desc)
+    ItemStatus.NeedsLook -> stringResource(R.string.needs_look_desc)
+    is ItemStatus.Failed -> stringResource(R.string.not_saved_reason, status.reason)
 }
 
 @Composable
@@ -545,10 +551,10 @@ private fun BatchBottomBar(state: BatchState, market: String?, onStart: () -> Un
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             when {
-                state.isRunning -> PaperButton("Stop", onCancel, Modifier.fillMaxWidth())
+                state.isRunning -> PaperButton(stringResource(R.string.stop), onCancel, Modifier.fillMaxWidth())
                 state.queuedCount > 0 -> AccentButton(
-                    text = if (state.queuedCount == state.failedCount) "Retry ${state.failedCount} failed"
-                    else "Save ${state.queuedCount} photo${if (state.queuedCount == 1) "" else "s"}",
+                    text = if (state.queuedCount == state.failedCount) stringResource(R.string.retry_failed, state.failedCount)
+                    else pluralStringResource(R.plurals.save_photos, state.queuedCount, state.queuedCount),
                     onClick = onStart,
                     enabled = !state.isImporting,
                     modifier = Modifier.fillMaxWidth(),
@@ -558,7 +564,7 @@ private fun BatchBottomBar(state: BatchState, market: String?, onStart: () -> Un
                         val context = LocalContext.current
                         val n = state.savedUris.size
                         AccentButton(
-                            text = if (market != null) "Share $n to $market" else "Share $n",
+                            text = if (market != null) stringResource(R.string.share_n_to, n, market) else stringResource(R.string.share_n, n),
                             icon = Icons.Default.Share,
                             onClick = {
                                 Telemetry.event("photos_shared", "source" to "batch", "count" to n)
@@ -567,7 +573,7 @@ private fun BatchBottomBar(state: BatchState, market: String?, onStart: () -> Un
                             modifier = Modifier.weight(1.4f),
                         )
                     }
-                    InkButton("New batch", onPickNew, Modifier.weight(1f))
+                    InkButton(stringResource(R.string.new_batch), onPickNew, Modifier.weight(1f))
                 }
             }
         }

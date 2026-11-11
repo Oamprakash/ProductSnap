@@ -1,5 +1,8 @@
 package com.oamsapps.productsnap.editor
 
+import com.oamsapps.productsnap.ui.text
+import androidx.compose.ui.res.stringResource
+import com.oamsapps.productsnap.R
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -78,6 +81,8 @@ fun BackgroundPicker(
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             val photo = selected as? BackgroundStyle.Photo
+            val yourBackgroundDesc = stringResource(R.string.your_background_photo)
+            val choosePhotoDesc = if (photo == null) stringResource(R.string.use_own_background) else stringResource(R.string.choose_other_background)
             if (photo != null) {
                 val thumb = remember(photoThumb) { photoThumb?.asImageBitmap() }
                 Box(
@@ -86,7 +91,7 @@ fun BackgroundPicker(
                         .clip(RoundedCornerShape(10.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .border(3.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(10.dp))
-                        .semantics { contentDescription = "Your background photo"; this.selected = true },
+                        .semantics { contentDescription = yourBackgroundDesc; this.selected = true },
                     contentAlignment = Alignment.Center,
                 ) {
                     if (thumb != null) Image(thumb, null, contentScale = ContentScale.Crop)
@@ -99,18 +104,18 @@ fun BackgroundPicker(
                     .clip(RoundedCornerShape(10.dp))
                     .border(1.dp, Color.LightGray, RoundedCornerShape(10.dp))
                     .clickable(enabled = enabled && !busy, onClick = onChoosePhoto)
-                    .semantics { contentDescription = if (photo == null) "Use your own photo as background" else "Choose a different background photo" },
+                    .semantics { contentDescription = choosePhotoDesc },
                 contentAlignment = Alignment.Center,
             ) {
                 if (busy && photo == null) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                 else Icon(Icons.Default.AddPhotoAlternate, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (photo != null) {
-                Text("Blur", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.blur), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 Switch(checked = photo.blur, onCheckedChange = onBlurChange, enabled = enabled && !busy)
             } else {
                 Text(
-                    "Your photo",
+                    stringResource(R.string.your_photo),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -128,12 +133,12 @@ private fun NaturalOption(selected: Boolean, enabled: Boolean, onClick: () -> Un
             selected = selected,
             onClick = onClick,
             enabled = enabled,
-            label = { Text("Natural: keep your background") },
+            label = { Text(stringResource(R.string.natural_keep_background)) },
             leadingIcon = { Icon(Icons.Default.Landscape, null, Modifier.size(18.dp)) },
         )
         if (selected) {
             Text(
-                "Your real background, with light and framing only. Good for Vinted, which asks for unedited photos.",
+                stringResource(R.string.natural_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -154,6 +159,7 @@ private fun SwatchRow(
     ) {
         presets.forEach { preset ->
             val isSelected = preset.style == selected
+            val description = stringResource(R.string.preset_background_desc, stringResource(preset.label))
             Box(
                 Modifier
                     .size(36.dp)
@@ -166,7 +172,7 @@ private fun SwatchRow(
                     )
                     .clickable(enabled = enabled) { onSelect(preset.style) }
                     .semantics {
-                        contentDescription = "${preset.label} background"
+                        contentDescription = description
                         this.selected = isSelected
                     }
             )
@@ -225,22 +231,22 @@ fun Modifier.checkerboardIf(enabled: Boolean): Modifier =
 @Composable
 fun LightStrengthPicker(selected: LightStrength, enabled: Boolean, onSelect: (LightStrength) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Auto light", style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(R.string.auto_light), style = MaterialTheme.typography.bodyMedium)
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.horizontalScroll(rememberScrollState()),
         ) {
             LightStrength.entries.forEach { s ->
-                FilterChip(selected = s == selected, onClick = { onSelect(s) }, enabled = enabled, label = { Text(s.label) })
+                FilterChip(selected = s == selected, onClick = { onSelect(s) }, enabled = enabled, label = { Text(s.text()) })
             }
         }
         Text(
             when (selected) {
-                LightStrength.OFF -> "The photo's own lighting, as shot."
-                LightStrength.GENTLE -> "Fixes a dim or tinted photo, up to 1.6× brighter."
-                LightStrength.NORMAL -> "Fixes a dim or tinted photo. Very dark photos go up to 2.2× brighter."
-                LightStrength.STRONG -> "Fixes a dim or tinted photo. Very dark photos go up to 2.8× brighter; may look grainy."
-            } + if (selected != LightStrength.OFF) " The item's own colours stay true." else "",
+                LightStrength.OFF -> stringResource(R.string.light_off_note)
+                LightStrength.GENTLE -> stringResource(R.string.light_gentle_note)
+                LightStrength.NORMAL -> stringResource(R.string.light_normal_note)
+                LightStrength.STRONG -> stringResource(R.string.light_strong_note)
+            } + if (selected != LightStrength.OFF) " " + stringResource(R.string.light_colours_true) else "",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -252,19 +258,19 @@ fun LightStrengthPicker(selected: LightStrength, enabled: Boolean, onSelect: (Li
 @Composable
 fun MarketplacePicker(selected: Marketplace?, enabled: Boolean, premium: Boolean, onSelect: (Marketplace?) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Made for", style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(R.string.made_for), style = MaterialTheme.typography.bodyMedium)
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.horizontalScroll(rememberScrollState()),
         ) {
-            FilterChip(selected = selected == null, onClick = { onSelect(null) }, enabled = enabled, label = { Text("Any") })
+            FilterChip(selected = selected == null, onClick = { onSelect(null) }, enabled = enabled, label = { Text(stringResource(R.string.any)) })
             Marketplace.entries.forEach { m ->
                 FilterChip(selected = m == selected, onClick = { onSelect(m) }, enabled = enabled, label = { Text(m.label) })
             }
         }
         selected?.let { m ->
             Text(
-                m.note + if (!premium) " Free saves carry a watermark, which most marketplaces don't allow; Premium removes it." else "",
+                stringResource(m.note) + if (!premium) " " + stringResource(R.string.watermark_market_note) else "",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

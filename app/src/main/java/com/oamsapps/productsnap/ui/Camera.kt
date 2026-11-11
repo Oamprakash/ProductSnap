@@ -1,5 +1,6 @@
 package com.oamsapps.productsnap.ui
 
+import com.oamsapps.productsnap.R
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.net.Uri
@@ -37,7 +38,7 @@ fun rememberTakePhoto(onPhoto: (Uri) -> Unit): () -> Unit {
             launcher.launch(uri)
         } catch (e: ActivityNotFoundException) {
             pending = null
-            Toast.makeText(context, "No camera app found on this phone.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.no_camera_app), Toast.LENGTH_SHORT).show()
         }
     }
 }

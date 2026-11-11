@@ -18,5 +18,5 @@ fun shareIntent(uris: List<Uri>): Intent {
     send.type = "image/*"
     send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     send.clipData = ClipData.newRawUri(null, uris[0]).apply { uris.drop(1).forEach { addItem(ClipData.Item(it)) } }
-    return Intent.createChooser(send, "Share to").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    return Intent.createChooser(send, null).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
 }

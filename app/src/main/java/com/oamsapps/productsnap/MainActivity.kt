@@ -18,7 +18,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.core.content.IntentCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oamsapps.productsnap.batch.BatchScreen
 import com.oamsapps.productsnap.batch.BatchViewModel
@@ -31,6 +36,7 @@ import com.oamsapps.productsnap.home.IntroScreen
 import com.oamsapps.productsnap.home.OnboardingScreen
 import com.oamsapps.productsnap.home.SellerPrefs
 import com.oamsapps.productsnap.ui.FirstUseTipHost
+import com.oamsapps.productsnap.ui.ReviewPrompt
 import com.oamsapps.productsnap.ui.rememberFirstUseTips
 import com.oamsapps.productsnap.ui.theme.ProductSnapTheme
 import com.oamsapps.productsnap.ui.theme.Studio
@@ -64,6 +70,18 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) {
             editorVm.setMarketplace(SellerPrefs.seller.value.primary)
             handleIntent(intent)
+        }
+
+        // Ask for a Play rating after a good save, once the app is in front again (not under the share sheet).
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                ReviewPrompt.due.collect { due ->
+                    if (due) {
+                        delay(1500) // let the "Saved" message land first
+                        ReviewPrompt.ask(this@MainActivity)
+                    }
+                }
+            }
         }
 
         setContent {

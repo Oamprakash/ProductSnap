@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.editor
 
+import androidx.compose.ui.res.stringResource
+import com.oamsapps.productsnap.R
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -71,12 +73,13 @@ fun CropCanvas(
     val latestRect by rememberUpdatedState(rect)
     val latestAspect by rememberUpdatedState(aspect)
     val latestOnChange by rememberUpdatedState(onRectChange)
+    val description = stringResource(R.string.crop_canvas_desc)
 
     Box(
         modifier
             .fillMaxSize()
             .clip(RoundedCornerShape(12.dp))
-            .semantics { contentDescription = "Crop frame. Drag corners to resize or the middle to move." }
+            .semantics { contentDescription = description }
             .pointerInput(bitmap.width, bitmap.height) {
                 awaitEachGesture {
                     val down = awaitFirstDown()

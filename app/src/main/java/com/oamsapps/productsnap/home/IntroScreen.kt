@@ -1,5 +1,6 @@
 package com.oamsapps.productsnap.home
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -67,7 +68,7 @@ fun IntroScreen(onDone: () -> Unit) {
 
     Column(Modifier.fillMaxSize().background(Studio.Paper).statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.End) {
-            if (!last) TextButton(onClick = onDone) { Text("Skip", color = Studio.Muted) }
+            if (!last) TextButton(onClick = onDone) { Text(stringResource(R.string.skip), color = Studio.Muted) }
             else Spacer(Modifier.height(48.dp))
         }
         HorizontalPager(state = pager, modifier = Modifier.weight(1f).fillMaxWidth()) { page ->
@@ -82,8 +83,9 @@ fun IntroScreen(onDone: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            val pageLabel = stringResource(R.string.page_of, pager.currentPage + 1, PAGES)
             Row(
-                Modifier.semantics { contentDescription = "Page ${pager.currentPage + 1} of $PAGES" },
+                Modifier.semantics { contentDescription = pageLabel },
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 repeat(PAGES) { i ->
@@ -99,7 +101,7 @@ fun IntroScreen(onDone: () -> Unit) {
             }
             Spacer(Modifier.weight(1f))
             AccentButton(
-                text = if (last) "Get started" else "Next",
+                text = if (last) stringResource(R.string.get_started) else stringResource(R.string.next),
                 icon = Icons.AutoMirrored.Filled.ArrowForward,
                 onClick = { if (last) onDone() else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } },
             )
@@ -131,15 +133,15 @@ private fun PurposePage() {
             val cardH = (maxHeight * 0.72f).coerceAtMost(320.dp)
             val cardW = cardH * 0.78f
             Box(Modifier.size(cardW * 1.75f, cardH * 1.1f)) {
-                PhotoCard(R.drawable.intro_before, "Before", Studio.StageRaised, Studio.StageText, cardW, cardH,
+                PhotoCard(R.drawable.intro_before, stringResource(R.string.before), Studio.StageRaised, Studio.StageText, cardW, cardH,
                     Modifier.align(Alignment.CenterStart).rotate(-5f))
-                PhotoCard(R.drawable.intro_after, "After", Studio.Accent, Studio.Ink, cardW, cardH,
+                PhotoCard(R.drawable.intro_after, stringResource(R.string.after), Studio.Accent, Studio.Ink, cardW, cardH,
                     Modifier.align(Alignment.CenterEnd).offset(y = (-8).dp).rotate(3f))
             }
         }
         PageText(
-            "Clean listing photos from your phone",
-            "Shoot your item anywhere, even on the floor. ProductSnap removes the clutter, fixes the light and sizes the photo for where you sell.",
+            stringResource(R.string.intro_purpose_title),
+            stringResource(R.string.intro_purpose_body),
         )
         Spacer(Modifier.height(4.dp))
     }
@@ -156,7 +158,7 @@ private fun PhotoCard(
     modifier: Modifier,
 ) {
     Box(modifier.size(w, h).clip(RoundedCornerShape(18.dp)).background(Color.White)) {
-        Image(painterResource(res), contentDescription = "$label photo", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        Image(painterResource(res), contentDescription = stringResource(R.string.photo_label_desc, label), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         Surface(
             shape = RoundedCornerShape(999.dp),
             color = tagBg,
@@ -176,11 +178,11 @@ private fun HowPage() {
             Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         ) {
-            Step(1, Icons.Default.PhotoCamera, "Pick a photo", "Tap One photo on Home, or Batch to do up to 30 at once.")
-            Step(2, Icons.Default.AutoFixHigh, "Clean it up", "Remove the background, then use the Light, Background and Crop tabs if you want to adjust.")
-            Step(3, Icons.Default.Share, "Save or share", "Save to your gallery, or share straight to your eBay, Vinted or Depop app.")
+            Step(1, Icons.Default.PhotoCamera, stringResource(R.string.intro_step1_title), stringResource(R.string.intro_step1_body))
+            Step(2, Icons.Default.AutoFixHigh, stringResource(R.string.intro_step2_title), stringResource(R.string.intro_step2_body))
+            Step(3, Icons.Default.Share, stringResource(R.string.intro_step3_title), stringResource(R.string.intro_step3_body))
         }
-        PageText("Three steps per photo", "Everything happens on one screen. After an edit, hold Compare to see the original.")
+        PageText(stringResource(R.string.intro_how_title), stringResource(R.string.intro_how_body))
         Spacer(Modifier.height(4.dp))
     }
 }
@@ -193,7 +195,7 @@ private fun Step(n: Int, icon: ImageVector, title: String, body: String) {
                 Icon(icon, null, tint = Studio.Paper, modifier = Modifier.size(22.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text("$n. $title", style = MaterialTheme.typography.titleMedium, color = Studio.Ink)
+                Text(stringResource(R.string.step_numbered, n, title), style = MaterialTheme.typography.titleMedium, color = Studio.Ink)
                 Text(body, style = MaterialTheme.typography.bodyMedium, color = Studio.Muted)
             }
         }
@@ -208,11 +210,11 @@ private fun WhyPage() {
             Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
         ) {
-            Feature(Icons.Default.Adjust, "Honest about condition", "Tap stains or tears to circle them. Each one is also saved as a close-up photo.")
-            Feature(Icons.Default.PhotoLibrary, "Many photos at once", "Up to 30 photos with the same look. Photos that need a second look are flagged.")
-            Feature(Icons.Default.Lock, "Private", "Every edit happens on your phone. Your photos are never uploaded.")
+            Feature(Icons.Default.Adjust, stringResource(R.string.intro_why1_title), stringResource(R.string.intro_why1_body))
+            Feature(Icons.Default.PhotoLibrary, stringResource(R.string.intro_why2_title), stringResource(R.string.intro_why2_body))
+            Feature(Icons.Default.Lock, stringResource(R.string.intro_why3_title), stringResource(R.string.intro_why3_body))
         }
-        PageText("Made for resellers", "Pick where you sell and every photo comes out the right shape. Change it anytime from Home, where the bulb has photo tips.")
+        PageText(stringResource(R.string.intro_why_title), stringResource(R.string.intro_why_body))
         Spacer(Modifier.height(4.dp))
     }
 }

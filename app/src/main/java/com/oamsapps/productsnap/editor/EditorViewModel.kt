@@ -1,5 +1,6 @@
 package com.oamsapps.productsnap.editor
 
+import com.oamsapps.productsnap.R
 import android.app.Application
 import android.graphics.Bitmap
 import android.net.Uri
@@ -34,6 +35,7 @@ import com.oamsapps.productsnap.image.background.BackgroundStyle
 import com.oamsapps.productsnap.image.erase.EraseStroke
 import com.oamsapps.productsnap.image.erase.MagicEraser
 import com.oamsapps.productsnap.telemetry.Telemetry
+import com.oamsapps.productsnap.ui.ReviewPrompt
 import com.oamsapps.productsnap.telemetry.kind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Deferred
@@ -263,7 +265,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 prepare(bmp)
             }
-            .onFailure { _state.update { s -> s.copy(isLoading = false, message = "Couldn't open that photo. Try a different one.") } }
+            .onFailure { _state.update { s -> s.copy(isLoading = false, message = str(R.string.open_photo_failed)) } }
             .isSuccess
     }
 
@@ -320,8 +322,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                         if (it.original !== original) it.copy(isRemovingBackground = false)
                         else if (cut == null) it.copy(
                             isRemovingBackground = false,
-                            message = if (removal.needsLook) "The cutout came out wrong on this photo. Try one with a plainer background, or keep the original."
-                            else "No product found. Try a photo with a clear subject.",
+                            message = if (removal.needsLook) str(R.string.cutout_wrong)
+                            else str(R.string.no_product_found_try),
                         )
                         else it.copy(
                             cutout = cut,
@@ -335,7 +337,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 .onFailure {
                     _state.update { s2 ->
-                        s2.copy(isRemovingBackground = false, message = "Background removal isn't ready yet. Check your connection so the model can download, then try again.")
+                        s2.copy(isRemovingBackground = false, message = str(R.string.model_not_ready))
                     }
                 }
         }
@@ -363,7 +365,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(background = style, backgroundPhoto = bmp, isPreparingBackground = false) }
                 ensureCutoutFor(style)
             }.onFailure {
-                _state.update { it.copy(isPreparingBackground = false, message = "Couldn't use that photo as a background. Try another one.") }
+                _state.update { it.copy(isPreparingBackground = false, message = str(R.string.background_photo_failed)) }
             }
         }
     }
@@ -400,6 +402,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun resetAdjustments() = _state.update { it.copy(adjustments = Adjustments()) }
     fun setLightStrength(strength: LightStrength) = _state.update { it.copy(lightStrength = strength) }
     fun clearMessage() = _state.update { it.copy(message = null) }
+
+    private fun str(id: Int, vararg args: Any): String = getApplication<Application>().getString(id, *args)
 
     // ---------- Undo (erase and crop) ----------
 
@@ -489,8 +493,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     _state.update {
                         it.copy(
                             isApplyingErase = false,
-                            message = if (e is OutOfMemoryError) "Not enough memory to erase that area. Try a smaller area."
-                            else "Couldn't erase that area. Try again with a smaller stroke.",
+                            message = if (e is OutOfMemoryError) str(R.string.erase_memory)
+                            else str(R.string.erase_failed),
                         )
                     }
                 }
@@ -539,7 +543,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 refineStrokes = emptyList(),
                 // Nothing to remove from an empty cutout, so start where the work is.
                 refineRestore = cutout == null,
-                message = if (cutout == null) "No cutout this time. Paint over the product with Restore to cut it out by hand." else it.message,
+                message = if (cutout == null) str(R.string.no_cutout_restore) else it.message,
             )
         }
     }
@@ -656,7 +660,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 Cropper.subjectBounds(cutout)?.let { Cropper.padded(it, 0.04f, cutout.width, cutout.height) }
             }
             if (bounds == null) {
-                _state.update { it.copy(message = "No product found to fit the crop to.") }
+                _state.update { it.copy(message = str(R.string.no_product_for_crop)) }
             } else {
                 _state.update { it.copy(cropAspect = null, cropRect = bounds.normalizedIn(cutout)) }
             }
@@ -757,6 +761,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 uris
             }.onSuccess { uris ->
                 if (freeSave) FreeAllowance.markUsed(getApplication())
+                ReviewPrompt.recordSaved(getApplication(), uris.size)
                 Telemetry.event(
                     if (share) "photos_shared" else "photo_saved",
                     "source" to "editor",
@@ -768,15 +773,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     "light" to s.lightStrength.name,
                     "premium" to settings.premium,
                 )
-                val what = if (uris.size > 1) "${uris.size} photos (with ${uris.size - 1} close-up${if (uris.size > 2) "s" else ""})" else "your photo"
+                val saved = if (uris.size > 1) {
+                    getApplication<Application>().resources.getQuantityString(R.plurals.saved_with_closeups, uris.size - 1, uris.size, uris.size - 1)
+                } else str(R.string.saved_one)
                 val message = when {
                     share -> null
-                    freeSave -> "Saved $what to Pictures/ProductSnap. Go Premium to save more without the watermark."
-                    else -> "Saved $what to Pictures/ProductSnap"
+                    freeSave -> "$saved. ${str(R.string.saved_free_suffix)}"
+                    else -> saved
                 }
                 _state.update { it.copy(isSaving = false, message = message, shareUris = if (share) uris else null) }
             }.onFailure { e ->
-                _state.update { it.copy(isSaving = false, message = "Couldn't save: ${e.message}") }
+                _state.update { it.copy(isSaving = false, message = str(R.string.save_failed, e.message.orEmpty())) }
             }
         }
     }

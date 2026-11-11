@@ -27,14 +27,14 @@ object BatchNotifications {
         val stop = WorkManager.getInstance(context).createCancelPendingIntent(workId)
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_batch)
-            .setContentTitle("Saving product photos")
-            .setContentText("$done of $total done")
+            .setContentTitle(context.getString(R.string.notif_saving_title))
+            .setContentText(context.getString(R.string.notif_progress, done, total))
             .setProgress(total, done, total == 0)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .setContentIntent(openBatch(context))
-            .addAction(0, "Stop", stop)
+            .addAction(0, context.getString(R.string.stop), stop)
             .build()
         return ForegroundInfo(PROGRESS_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
     }
@@ -48,8 +48,8 @@ object BatchNotifications {
         ensureChannel(context)
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_batch)
-            .setContentTitle("Product photos saved")
-            .setContentText("Saved $saved of $total photos to Pictures/ProductSnap")
+            .setContentTitle(context.getString(R.string.notif_done_title))
+            .setContentText(context.getString(R.string.batch_saved_message, saved, total))
             .setAutoCancel(true)
             .setContentIntent(openBatch(context))
             .build()
@@ -70,8 +70,8 @@ object BatchNotifications {
         val nm = context.getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CHANNEL_ID) == null) {
             nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Batch saving", NotificationManager.IMPORTANCE_LOW).apply {
-                    description = "Progress while saving many photos"
+                NotificationChannel(CHANNEL_ID, context.getString(R.string.notif_channel_name), NotificationManager.IMPORTANCE_LOW).apply {
+                    description = context.getString(R.string.notif_channel_desc)
                 }
             )
         }

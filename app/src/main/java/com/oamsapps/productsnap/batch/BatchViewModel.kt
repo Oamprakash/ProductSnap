@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.batch
 
+import com.oamsapps.productsnap.R
+import com.oamsapps.productsnap.ui.ReviewPrompt
 import android.util.Log
 import com.oamsapps.productsnap.image.BackgroundRemover
 import com.oamsapps.productsnap.image.LightStrength
@@ -126,7 +128,8 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
                 refresh(running)
                 if (wasRunning == true && !running) {
                     val s = _state.value
-                    _state.update { it.copy(message = "Saved ${s.savedCount} of ${s.items.size} photos to Pictures/ProductSnap") }
+                    _state.update { it.copy(message = str(R.string.batch_saved_message, s.savedCount, s.items.size)) }
+                    ReviewPrompt.recordSaved(getApplication(), s.savedCount)
                 }
                 wasRunning = running
             }
@@ -181,8 +184,8 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
 
             val message = when {
                 fresh.size > accepted.size -> limitMessage(limit)
-                unreadable == 1 -> "1 photo couldn't be opened and wasn't added."
-                unreadable > 1 -> "$unreadable photos couldn't be opened and weren't added."
+                unreadable == 1 -> str(R.string.batch_unreadable_one)
+                unreadable > 1 -> str(R.string.batch_unreadable_many, unreadable)
                 else -> null
             }
             val hitFreeLimit = fresh.size > accepted.size && !isPremium.value
@@ -223,7 +226,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(isPreparingBackground = true, message = null) }
             runCatching { BackgroundPhotos.import(getApplication(), uri) }
                 .onSuccess { file -> setBackground(BackgroundStyle.Photo(file.absolutePath, blur = true)) }
-                .onFailure { _state.update { it.copy(message = "Couldn't use that photo as a background. Try another one.") } }
+                .onFailure { _state.update { it.copy(message = str(R.string.background_photo_failed)) } }
             _state.update { it.copy(isPreparingBackground = false) }
         }
     }
@@ -259,7 +262,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
     fun start() {
         if (!_state.value.canEdit) return
         if (!isPremium.value && FreeAllowance.remaining() == 0) {
-            _state.update { it.copy(message = FREE_USED_MESSAGE, messageOffersUpgrade = true) }
+            _state.update { it.copy(message = str(R.string.free_used_message), messageOffersUpgrade = true) }
             return
         }
         _state.update { it.copy(isRunning = true, message = null) }
@@ -366,9 +369,9 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
         if (isPremium.value) PremiumManager.PREMIUM_BATCH_LIMIT else FreeAllowance.remaining()
 
     private fun limitMessage(limit: Int) = when {
-        isPremium.value -> "A batch holds up to $limit photos. The extra photos weren't added."
-        limit == 0 -> FREE_USED_MESSAGE
-        else -> "Your free photo is a batch of $limit. Premium handles up to ${PremiumManager.PREMIUM_BATCH_LIMIT}."
+        isPremium.value -> str(R.string.batch_limit_premium, limit)
+        limit == 0 -> str(R.string.free_used_message)
+        else -> str(R.string.batch_limit_free, limit, PremiumManager.PREMIUM_BATCH_LIMIT)
     }
 
     private fun StoredItem.toItemStatus(running: Boolean): ItemStatus = when (status) {
@@ -377,10 +380,8 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
         StoredStatus.SAVED -> ItemStatus.Saved
         StoredStatus.NO_SUBJECT -> ItemStatus.NoSubject
         StoredStatus.NEEDS_LOOK -> ItemStatus.NeedsLook
-        StoredStatus.FAILED -> ItemStatus.Failed(reason ?: "Unknown error")
+        StoredStatus.FAILED -> ItemStatus.Failed(reason ?: str(R.string.unknown_error))
     }
 
-    private companion object {
-        const val FREE_USED_MESSAGE = "You've used your free photo. Go Premium to save more, without the watermark."
-    }
+    private fun str(id: Int, vararg args: Any): String = getApplication<Application>().getString(id, *args)
 }

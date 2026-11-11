@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.home
 
+import androidx.compose.ui.res.stringResource
+import com.oamsapps.productsnap.R
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
@@ -131,15 +133,15 @@ fun HomeScreen(
                 Text("ProductSnap", style = MaterialTheme.typography.titleLarge)
                 BuildTag()
             }
-            PaperIconButton(Icons.Default.Lightbulb, "Photo tips", onClick = { showTips = true })
+            PaperIconButton(Icons.Default.Lightbulb, stringResource(R.string.photo_tips), onClick = { showTips = true })
         }
 
         MarketPill(seller.primary, onClick = { showMarkets = true })
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Listing-ready photos in 60 seconds.", style = MaterialTheme.typography.displaySmall)
+            Text(stringResource(R.string.home_headline), style = MaterialTheme.typography.displaySmall)
             TextButton(onClick = onHowItWorks, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)) {
-                Text("How ProductSnap works", style = MaterialTheme.typography.labelLarge, color = Studio.Ink)
+                Text(stringResource(R.string.how_it_works), style = MaterialTheme.typography.labelLarge, color = Studio.Ink)
                 Spacer(Modifier.size(6.dp))
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(16.dp), tint = Studio.Ink)
             }
@@ -147,8 +149,8 @@ fun HomeScreen(
 
         // Actions
         BigTile(
-            title = "One photo",
-            body = "Clean background, good light, flaws marked.",
+            title = stringResource(R.string.one_photo),
+            body = stringResource(R.string.one_photo_body),
             icon = Icons.Default.PhotoCamera,
             container = Studio.Ink,
             content = Studio.Paper,
@@ -158,8 +160,8 @@ fun HomeScreen(
         // Same height side by side; one-line titles and descriptions keep both cards laid out alike.
         Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             BigTile(
-                title = "Batch",
-                body = "${PremiumManager.PREMIUM_BATCH_LIMIT} photos at once.",
+                title = stringResource(R.string.batch),
+                body = stringResource(R.string.batch_tile_body, PremiumManager.PREMIUM_BATCH_LIMIT),
                 icon = Icons.Default.PhotoLibrary,
                 container = Studio.Accent,
                 content = Studio.Ink,
@@ -167,8 +169,8 @@ fun HomeScreen(
                 modifier = Modifier.weight(1f).fillMaxHeight(),
             )
             BigTile(
-                title = "Photo tips",
-                body = "Shoot better photos.",
+                title = stringResource(R.string.photo_tips),
+                body = stringResource(R.string.photo_tips_body),
                 icon = Icons.Default.Lightbulb,
                 container = Studio.Card,
                 content = Studio.Ink,
@@ -179,12 +181,12 @@ fun HomeScreen(
 
         if (recent.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SectionLabel("Recent saves")
+                SectionLabel(stringResource(R.string.recent_saves))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(recent, key = { it.uri.toString() }) { item ->
                         Image(
                             item.thumb.asImageBitmap(),
-                            contentDescription = "Saved photo",
+                            contentDescription = stringResource(R.string.saved_photo),
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .size(88.dp)
@@ -203,12 +205,12 @@ fun HomeScreen(
     if (showAddPhoto) {
         ModalBottomSheet(onDismissRequest = { showAddPhoto = false }, containerColor = Studio.Paper) {
             Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Add a photo", style = MaterialTheme.typography.headlineSmall)
-                SourceRow(Icons.Default.PhotoCamera, "Take a photo", "Opens your camera. Shoot in daylight with space around the item.") {
+                Text(stringResource(R.string.add_a_photo), style = MaterialTheme.typography.headlineSmall)
+                SourceRow(Icons.Default.PhotoCamera, stringResource(R.string.take_a_photo), stringResource(R.string.take_a_photo_body)) {
                     showAddPhoto = false
                     takePhoto()
                 }
-                SourceRow(Icons.Default.PhotoLibrary, "Choose from gallery", "Pick a photo you've already taken.") {
+                SourceRow(Icons.Default.PhotoLibrary, stringResource(R.string.choose_from_gallery), stringResource(R.string.choose_from_gallery_body)) {
                     showAddPhoto = false
                     pick()
                 }
@@ -219,7 +221,7 @@ fun HomeScreen(
     if (showMarkets) {
         ModalBottomSheet(onDismissRequest = { showMarkets = false }, containerColor = Studio.Paper) {
             Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Make photos for", style = MaterialTheme.typography.headlineSmall)
+                Text(stringResource(R.string.make_photos_for), style = MaterialTheme.typography.headlineSmall)
                 val options = seller.markets.ifEmpty { listOf(Marketplace.EBAY, Marketplace.VINTED, Marketplace.POSHMARK, Marketplace.DEPOP, Marketplace.ETSY, null) }
                 options.forEach { m ->
                     val selected = m == seller.primary
@@ -238,17 +240,17 @@ fun HomeScreen(
                     ) {
                         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text(m?.label ?: "Any marketplace", style = MaterialTheme.typography.titleMedium)
-                                Text(m?.note ?: "Keeps the photo's own shape.", style = MaterialTheme.typography.bodySmall, color = Studio.Muted)
+                                Text(m?.label ?: stringResource(R.string.any_marketplace), style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(m?.note ?: R.string.any_marketplace_note), style = MaterialTheme.typography.bodySmall, color = Studio.Muted)
                             }
-                            if (selected) Icon(Icons.Default.Check, "Selected", tint = Studio.Ink)
+                            if (selected) Icon(Icons.Default.Check, stringResource(R.string.selected), tint = Studio.Ink)
                         }
                     }
                 }
                 TextButton(onClick = { showMarkets = false; onChangeMarkets() }) {
                     Icon(Icons.Default.Tune, null, Modifier.size(18.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text("Change where I sell")
+                    Text(stringResource(R.string.change_where_i_sell))
                 }
             }
         }
@@ -292,12 +294,12 @@ private fun MarketPill(primary: Marketplace?, onClick: () -> Unit) {
         shape = RoundedCornerShape(999.dp),
         color = Studio.Card,
         border = BorderStroke(1.dp, Studio.Line),
-        modifier = Modifier.clickable(role = Role.Button, onClickLabel = "Change marketplace", onClick = onClick),
+        modifier = Modifier.clickable(role = Role.Button, onClickLabel = stringResource(R.string.change_marketplace), onClick = onClick),
     ) {
         Row(Modifier.padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Surface(Modifier.size(8.dp), shape = CircleShape, color = Studio.Good) {}
             Text(
-                if (primary != null) "Selling on ${primary.label}" else "Any marketplace",
+                if (primary != null) stringResource(R.string.selling_on, primary.label) else stringResource(R.string.any_marketplace),
                 style = MaterialTheme.typography.labelLarge,
             )
             Icon(Icons.Default.ExpandMore, null, Modifier.size(18.dp), tint = Studio.Muted)
@@ -348,19 +350,19 @@ private fun PlanStrip(premium: Boolean, freeLeft: Boolean, onUpgrade: () -> Unit
     Surface(shape = RoundedCornerShape(18.dp), color = Studio.Chip, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(if (PremiumManager.allFree) "Free during launch" else if (premium) "Premium" else "Free plan", style = MaterialTheme.typography.titleSmall)
+                Text(if (PremiumManager.allFree) stringResource(R.string.free_during_launch) else if (premium) stringResource(R.string.premium) else stringResource(R.string.free_plan), style = MaterialTheme.typography.titleSmall)
                 Text(
                     when {
-                        PremiumManager.allFree -> "Every feature is free while we launch."
-                        premium -> "Unlimited photos, no watermark."
-                        freeLeft -> "${FreeAllowance.remaining()} photo left to save."
-                        else -> "Free photo used. Go Premium to keep saving."
+                        PremiumManager.allFree -> stringResource(R.string.free_during_launch_body)
+                        premium -> stringResource(R.string.premium_body)
+                        freeLeft -> stringResource(R.string.free_photos_left, FreeAllowance.remaining())
+                        else -> stringResource(R.string.free_used_body)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = Studio.Muted,
                 )
             }
-            if (!premium) TextButton(onClick = onUpgrade) { Text("Go Premium", color = Studio.Ink, style = MaterialTheme.typography.labelLarge) }
+            if (!premium) TextButton(onClick = onUpgrade) { Text(stringResource(R.string.go_premium), color = Studio.Ink, style = MaterialTheme.typography.labelLarge) }
         }
     }
 }

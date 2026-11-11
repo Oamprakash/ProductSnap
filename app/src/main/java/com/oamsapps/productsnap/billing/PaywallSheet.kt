@@ -1,5 +1,8 @@
 package com.oamsapps.productsnap.billing
 
+import android.content.res.Resources
+import androidx.compose.ui.res.stringResource
+import com.oamsapps.productsnap.R
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -48,11 +51,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.oamsapps.productsnap.BuildConfig
 
-private val Benefits = listOf(
-    "Unlimited saves at full quality",
-    "No watermark",
-    "Batches of up to ${PremiumManager.PREMIUM_BATCH_LIMIT} photos",
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +61,12 @@ fun PaywallSheet(onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { Telemetry.event("paywall_shown", "premium" to premium) }
     val activity = LocalContext.current.findActivity()
     val uriHandler = LocalUriHandler.current
+    val resources = LocalContext.current.resources
+    val benefits = listOf(
+        stringResource(R.string.benefit_unlimited),
+        stringResource(R.string.benefit_no_watermark),
+        stringResource(R.string.benefit_batches, PremiumManager.PREMIUM_BATCH_LIMIT),
+    )
 
     // Closes itself the moment the purchase goes through.
     LaunchedEffect(premium) { if (premium) onDismiss() }
@@ -81,10 +85,10 @@ fun PaywallSheet(onDismiss: () -> Unit) {
                 .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("ProductSnap Premium", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.premium_title), style = MaterialTheme.typography.headlineSmall)
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Benefits.forEach { benefit ->
+                benefits.forEach { benefit ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(12.dp))
@@ -100,7 +104,7 @@ fun PaywallSheet(onDismiss: () -> Unit) {
                     }
                 billing.plans.isEmpty() ->
                     Text(
-                        billing.error ?: "Premium plans aren't available right now. Check your connection and try again.",
+                        billing.error ?: stringResource(R.string.billing_no_plans),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -114,7 +118,7 @@ fun PaywallSheet(onDismiss: () -> Unit) {
 
             if (billing.isPending) {
                 Text(
-                    "Your payment is pending. Premium unlocks as soon as Google Play confirms it.",
+                    stringResource(R.string.payment_pending),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -127,22 +131,22 @@ fun PaywallSheet(onDismiss: () -> Unit) {
                 enabled = activity != null && selected != null,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
             ) {
-                Text(if (selected?.trialPeriod != null) "Start free trial" else "Subscribe")
+                Text(stringResource(if (selected?.trialPeriod != null) R.string.start_free_trial else R.string.subscribe))
             }
 
             Text(
-                selected?.let { renewalNote(it) } ?: "Billed through Google Play. Cancel anytime.",
+                selected?.let { renewalNote(resources, it) } ?: stringResource(R.string.billed_google_play),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = Billing::restore) { Text("Restore purchase") }
+                TextButton(onClick = Billing::restore) { Text(stringResource(R.string.restore_purchase)) }
                 TextButton(onClick = {
                     uriHandler.openUri(
                         "https://play.google.com/store/account/subscriptions?sku=${Billing.PRODUCT_ID}&package=${BuildConfig.APPLICATION_ID}"
                     )
-                }) { Text("Manage subscription") }
+                }) { Text(stringResource(R.string.manage_subscription)) }
             }
 
             if (BuildConfig.DEBUG) {
@@ -169,6 +173,7 @@ fun PaywallSheet(onDismiss: () -> Unit) {
 
 @Composable
 private fun PlanCard(plan: Plan, selected: Boolean, onSelect: () -> Unit) {
+    val resources = LocalContext.current.resources
     OutlinedCard(
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(
@@ -184,12 +189,12 @@ private fun PlanCard(plan: Plan, selected: Boolean, onSelect: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    "${plan.price} / ${periodLabel(plan.billingPeriod)}",
+                    stringResource(R.string.price_per_period, plan.price, periodLabel(resources, plan.billingPeriod)),
                     style = MaterialTheme.typography.titleMedium,
                 )
                 plan.trialPeriod?.let {
                     Text(
-                        "${periodLabel(it, singularWithoutOne = false)} free",
+                        stringResource(R.string.trial_free, periodLabel(resources, it, singularWithoutOne = false)),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -199,13 +204,12 @@ private fun PlanCard(plan: Plan, selected: Boolean, onSelect: () -> Unit) {
     }
 }
 
-private fun renewalNote(plan: Plan): String {
-    val period = periodLabel(plan.billingPeriod)
+private fun renewalNote(resources: Resources, plan: Plan): String {
+    val period = periodLabel(resources, plan.billingPeriod)
     return if (plan.trialPeriod != null) {
-        "Free for ${periodLabel(plan.trialPeriod, singularWithoutOne = false)}, then ${plan.price} every $period. " +
-            "Cancel anytime in Google Play before the trial ends and you won't be charged."
+        resources.getString(R.string.renewal_trial, periodLabel(resources, plan.trialPeriod, singularWithoutOne = false), plan.price, period)
     } else {
-        "${plan.price} every $period, billed through Google Play. Cancel anytime."
+        resources.getString(R.string.renewal_plain, plan.price, period)
     }
 }
 

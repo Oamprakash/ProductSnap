@@ -1,5 +1,6 @@
 package com.oamsapps.productsnap.batch
 
+import com.oamsapps.productsnap.R
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.SystemClock
@@ -222,11 +223,11 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     }
 
     private fun failure(item: StoredItem, e: Throwable): Outcome = when (e) {
-        is OutOfMemoryError -> Outcome(StoredStatus.FAILED, "Not enough memory for this photo")
+        is OutOfMemoryError -> Outcome(StoredStatus.FAILED, applicationContext.getString(R.string.fail_memory))
         is Exception -> {
             Log.w(TAG, "Photo ${item.id} failed to load or segment", e)
             Telemetry.nonFatal(e, "batch load/segment")
-            Outcome(StoredStatus.FAILED, (e.message ?: "Unknown error").take(120))
+            Outcome(StoredStatus.FAILED, (e.message ?: applicationContext.getString(R.string.unknown_error)).take(120))
         }
         else -> throw e
     }
@@ -241,7 +242,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     ): StageResult {
         p.failure?.let { return it }
         val original = p.original
-        if (p.segmented == null && original == null) return Outcome(StoredStatus.FAILED, "Photo couldn't be read")
+        if (p.segmented == null && original == null) return Outcome(StoredStatus.FAILED, applicationContext.getString(R.string.fail_unreadable))
         var cutout: Bitmap? = null
         var cropped: Bitmap? = null
         var shadowed: Bitmap? = null
@@ -256,7 +257,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                 cutout = removal.cutout
                 light = if (removal.cutout != null) removal.light else LightFix.NONE
                 val framed = clock.time(RunClock.CROP_SHADOW) {
-                    Cropper.natural(photo ?: return Outcome(StoredStatus.FAILED, "Photo couldn't be read"), cutout, settings.canvasAspect)
+                    Cropper.natural(photo ?: return Outcome(StoredStatus.FAILED, applicationContext.getString(R.string.fail_unreadable)), cutout, settings.canvasAspect)
                 }
                 if (framed !== photo) cropped = framed
                 return render(p.item, framed, settings, light, backgroundPhoto, clock)
@@ -267,7 +268,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
                 photo = removal.photo
                 cutout = removal.cutout
                 light = if (removal.cutout != null) removal.light else LightFix.NONE
-                val whole = photo ?: return Outcome(StoredStatus.FAILED, "Photo couldn't be read")
+                val whole = photo ?: return Outcome(StoredStatus.FAILED, applicationContext.getString(R.string.fail_unreadable))
                 val framed = clock.time(RunClock.CROP_SHADOW) { Cropper.applyBatchCrop(whole, settings.crop, subjectAware = false) }
                 if (framed !== whole) cropped = framed
                 return render(p.item, framed, settings, light, backgroundPhoto, clock)
@@ -299,11 +300,11 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         } catch (e: CancellationException) {
             throw e
         } catch (e: OutOfMemoryError) {
-            return Outcome(StoredStatus.FAILED, "Not enough memory for this photo")
+            return Outcome(StoredStatus.FAILED, applicationContext.getString(R.string.fail_memory))
         } catch (e: Exception) {
             Log.w(TAG, "Photo ${p.item.id} failed", e)
             Telemetry.nonFatal(e, "batch finish")
-            return Outcome(StoredStatus.FAILED, (e.message ?: "Unknown error").take(120))
+            return Outcome(StoredStatus.FAILED, (e.message ?: applicationContext.getString(R.string.unknown_error)).take(120))
         } finally {
             original?.recycle()
             photo?.recycle()
@@ -340,7 +341,7 @@ class BatchWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         } catch (e: Exception) {
             Log.w(TAG, "Photo ${r.item.id} couldn't be saved", e)
             Telemetry.nonFatal(e, "batch save")
-            Outcome(StoredStatus.FAILED, (e.message ?: "Couldn't save").take(120))
+            Outcome(StoredStatus.FAILED, (e.message ?: applicationContext.getString(R.string.fail_save)).take(120))
         } finally {
             r.bitmap.recycle()
         }
