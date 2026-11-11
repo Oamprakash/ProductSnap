@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.billing
 
+import android.content.res.Resources
+import com.oamsapps.productsnap.R
 import android.app.Activity
 import android.content.Context
 import android.util.Log
@@ -101,7 +103,7 @@ object Billing : PurchasesUpdatedListener {
                     }
                 } else {
                     Log.w(TAG, "Setup failed: ${result.debugMessage}")
-                    _state.update { it.copy(isConnected = false, isLoading = false, error = "Google Play billing isn't available right now.") }
+                    _state.update { it.copy(isConnected = false, isLoading = false, error = appContext.getString(R.string.billing_unavailable)) }
                     scheduleReconnect()
                 }
             }
@@ -151,7 +153,7 @@ object Billing : PurchasesUpdatedListener {
         val details = result.productDetailsList.firstOrNull()
         if (billingResult.responseCode != BillingClient.BillingResponseCode.OK || details == null) {
             Log.w(TAG, "No product details: ${billingResult.debugMessage}, unfetched: ${result.unfetchedProductList.map { it.productId to it.statusCode }}")
-            _state.update { it.copy(isLoading = false, plans = emptyList(), error = "Premium plans aren't available right now. Check your connection and try again.") }
+            _state.update { it.copy(isLoading = false, plans = emptyList(), error = appContext.getString(R.string.billing_no_plans)) }
             return
         }
         productDetails = details
@@ -194,7 +196,7 @@ object Billing : PurchasesUpdatedListener {
     fun launchPurchase(activity: Activity, plan: Plan) {
         val details = productDetails
         if (details == null || !client.isReady) {
-            _state.update { it.copy(error = "Couldn't reach Google Play. Try again in a moment.") }
+            _state.update { it.copy(error = appContext.getString(R.string.billing_unreachable)) }
             refresh()
             return
         }
@@ -211,7 +213,7 @@ object Billing : PurchasesUpdatedListener {
         _state.update { it.copy(error = null) }
         val result = client.launchBillingFlow(activity, params)
         if (result.responseCode != BillingClient.BillingResponseCode.OK) {
-            _state.update { it.copy(error = "Couldn't start the purchase. Try again.") }
+            _state.update { it.copy(error = appContext.getString(R.string.billing_start_failed)) }
         }
     }
 
@@ -227,7 +229,7 @@ object Billing : PurchasesUpdatedListener {
             BillingClient.BillingResponseCode.OK -> applyPurchases(purchases.orEmpty(), authoritative = false)
             BillingClient.BillingResponseCode.USER_CANCELED -> Unit
             BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> refresh()
-            else -> _state.update { it.copy(error = "The purchase didn't go through. You haven't been charged.") }
+            else -> _state.update { it.copy(error = appContext.getString(R.string.billing_not_completed)) }
         }
     }
 
@@ -271,15 +273,16 @@ internal fun periodDays(iso: String): Int {
     return (y.toIntOrNull() ?: 0) * 365 + (mo.toIntOrNull() ?: 0) * 30 + (w.toIntOrNull() ?: 0) * 7 + (d.toIntOrNull() ?: 0)
 }
 
-/** "P1M" → "month", "P3M" → "3 months", "P1Y" → "year", "P7D" → "7 days". */
-internal fun periodLabel(iso: String, singularWithoutOne: Boolean = true): String {
+/** "P1M" → "month", "P3M" → "3 months", "P1Y" → "year", "P7D" → "7 days", in the phone's language. */
+internal fun periodLabel(resources: Resources, iso: String, singularWithoutOne: Boolean = true): String {
     val m = Regex("P(?:(\\d+)Y)?(?:(\\d+)M)?(?:(\\d+)W)?(?:(\\d+)D)?").matchEntire(iso) ?: return iso
-    val parts = listOf("year", "month", "week", "day").zip(m.groupValues.drop(1))
-    val (unit, value) = parts.firstOrNull { it.second.isNotEmpty() } ?: return iso
+    val units = listOf(
+        R.string.period_year to R.plurals.period_years,
+        R.string.period_month to R.plurals.period_months,
+        R.string.period_week to R.plurals.period_weeks,
+        R.string.period_day to R.plurals.period_days,
+    )
+    val (unit, value) = units.zip(m.groupValues.drop(1)).firstOrNull { it.second.isNotEmpty() } ?: return iso
     val n = value.toInt()
-    return when {
-        n == 1 && singularWithoutOne -> unit
-        n == 1 -> "1 $unit"
-        else -> "$n ${unit}s"
-    }
+    return if (n == 1 && singularWithoutOne) resources.getString(unit.first) else resources.getQuantityString(unit.second, n, n)
 }

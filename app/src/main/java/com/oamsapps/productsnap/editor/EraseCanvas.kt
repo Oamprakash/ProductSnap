@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.editor
 
+import androidx.compose.ui.res.stringResource
+import com.oamsapps.productsnap.R
 import android.graphics.Bitmap
 import android.graphics.PointF
 import androidx.compose.foundation.Canvas
@@ -93,7 +95,7 @@ fun EraseCanvas(
     underlay: Bitmap? = null,
     underlayAlpha: Float = 0.3f,
     checkerboard: Boolean = false,
-    description: String = "Photo. Paint over the area to remove. Pinch to zoom.",
+    description: String = stringResource(R.string.erase_canvas_desc),
 ) {
     val image = remember(bitmap) { bitmap.asImageBitmap() }
     val underImage = remember(underlay) { underlay?.asImageBitmap() }
@@ -256,14 +258,14 @@ private fun ZoomButtons(
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         FilledTonalIconButton(onClick = onZoomIn, enabled = zoom < MAX_ZOOM, modifier = Modifier.size(40.dp)) {
-            Icon(Icons.Default.ZoomIn, "Zoom in")
+            Icon(Icons.Default.ZoomIn, stringResource(R.string.zoom_in))
         }
         FilledTonalIconButton(onClick = onZoomOut, enabled = zoom > 1f, modifier = Modifier.size(40.dp)) {
-            Icon(Icons.Default.ZoomOut, "Zoom out")
+            Icon(Icons.Default.ZoomOut, stringResource(R.string.zoom_out))
         }
         if (zoom > 1.01f) {
             FilledTonalIconButton(onClick = onFit, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Default.FitScreen, "Fit photo to screen")
+                Icon(Icons.Default.FitScreen, stringResource(R.string.fit_photo_to_screen))
             }
         }
     }

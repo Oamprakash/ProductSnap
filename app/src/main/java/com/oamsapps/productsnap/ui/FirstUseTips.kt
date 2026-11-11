@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.ui
 
+import androidx.compose.ui.res.stringResource
+import com.oamsapps.productsnap.R
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.animation.core.Animatable
@@ -199,7 +201,7 @@ private fun BubbleCard(title: String, body: String, onDismiss: () -> Unit) {
             }
             Text(body, style = MaterialTheme.typography.bodyMedium, color = Studio.StageText.copy(alpha = 0.86f), modifier = Modifier.padding(end = 8.dp))
             Row(Modifier.align(Alignment.End)) {
-                TextButton(onClick = onDismiss) { Text("Got it", color = Studio.Accent, style = MaterialTheme.typography.labelLarge) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.got_it), color = Studio.Accent, style = MaterialTheme.typography.labelLarge) }
             }
         }
     }

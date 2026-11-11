@@ -1,5 +1,8 @@
 package com.oamsapps.productsnap.ui
 
+import androidx.compose.ui.res.stringResource
+import com.oamsapps.productsnap.R
+import androidx.annotation.StringRes
 import android.content.Context
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -64,19 +67,19 @@ object PhotoTips {
 }
 
 /** What each good-vs-bad pair shows. Each answers a failure seen in testing. */
-private enum class Example(val title: String, val avoid: String, val better: String) {
-    Light("Light", "A dim room hides the item and darkens the cutout.", "Daylight from a window, no flash."),
-    Background("Background", "Busy patterns blend into the item and confuse the cutout.", "A plain surface that contrasts with the item."),
-    Framing("Framing", "Edges that touch the frame get cut off.", "The whole item, with space all around."),
-    Angle("Angle", "Shooting at a slant distorts the shape.", "Lay it flat and shoot from straight above."),
+private enum class Example(@StringRes val title: Int, @StringRes val avoid: Int, @StringRes val better: Int) {
+    Light(R.string.light, R.string.tip_light_avoid, R.string.tip_light_better),
+    Background(R.string.background, R.string.tip_bg_avoid, R.string.tip_bg_better),
+    Framing(R.string.framing, R.string.tip_framing_avoid, R.string.tip_framing_better),
+    Angle(R.string.angle, R.string.tip_angle_avoid, R.string.tip_angle_better),
 }
 
-private class Tip(val icon: ImageVector, val title: String, val body: String)
+private class Tip(val icon: ImageVector, @StringRes val title: Int, @StringRes val body: Int)
 
 private val tips = listOf(
-    Tip(Icons.Default.FlashOff, "Turn the flash off", "Flash makes glare and harsh shadows. Move closer to a window instead."),
-    Tip(Icons.Default.CenterFocusStrong, "Hold still and tap to focus", "A sharp photo cuts out cleanly."),
-    Tip(Icons.Default.Adjust, "Show flaws honestly", "Mark stains or tears with Flaws. Each gets its own close-up, so buyers know what they're getting."),
+    Tip(Icons.Default.FlashOff, R.string.tip_flash_title, R.string.tip_flash_body),
+    Tip(Icons.Default.CenterFocusStrong, R.string.tip_focus_title, R.string.tip_focus_body),
+    Tip(Icons.Default.Adjust, R.string.tip_flaws_title, R.string.tip_flaws_body),
 )
 
 @Composable
@@ -93,42 +96,42 @@ fun PhotoTipsDialog(onDismiss: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Photos that sell", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-                    PaperIconButton(Icons.Default.Close, "Close tips", onDismiss)
+                    Text(stringResource(R.string.tips_title), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                    PaperIconButton(Icons.Default.Close, stringResource(R.string.close_tips), onDismiss)
                 }
                 Text(
-                    "A good photo to start from means a clean cutout in one tap. Here's what to avoid and what works better.",
+                    stringResource(R.string.tips_intro),
                     style = MaterialTheme.typography.bodyLarge,
                     color = Studio.Muted,
                 )
                 Example.entries.forEach { ExampleRow(it) }
 
-                SectionLabel("Shots to take")
+                SectionLabel(stringResource(R.string.shots_to_take))
                 Text(
-                    "Buyers trust listings that show the whole item and the details. Take these for each item:",
+                    stringResource(R.string.shots_intro),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Studio.Muted,
                 )
                 ShotGrid()
                 Text(
-                    "Shoes: add the sole and both sides. Bags: add the inside and the base. Jewelry: add the clasp and any marks.",
+                    stringResource(R.string.shots_extra),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Studio.Muted,
                 )
 
-                SectionLabel("More tips")
+                SectionLabel(stringResource(R.string.more_tips))
                 tips.forEach { t ->
                     Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         Box(Modifier.size(40.dp).clip(CircleShape).background(Studio.Chip), contentAlignment = Alignment.Center) {
                             Icon(t.icon, null, Modifier.size(20.dp), tint = Studio.Ink)
                         }
                         Column(Modifier.weight(1f)) {
-                            Text(t.title, style = MaterialTheme.typography.titleMedium)
-                            Text(t.body, style = MaterialTheme.typography.bodyMedium, color = Studio.Muted)
+                            Text(stringResource(t.title), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(t.body), style = MaterialTheme.typography.bodyMedium, color = Studio.Muted)
                         }
                     }
                 }
-                InkButton("Got it", onDismiss, Modifier.fillMaxWidth())
+                InkButton(stringResource(R.string.got_it), onDismiss, Modifier.fillMaxWidth())
                 Text(
                     "ProductSnap ${BuildConfig.VERSION_NAME.substringBefore('-')} (${BuildConfig.VERSION_CODE})",
                     style = MaterialTheme.typography.labelSmall,
@@ -143,7 +146,7 @@ fun PhotoTipsDialog(onDismiss: () -> Unit) {
 @Composable
 private fun ExampleRow(example: Example) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(example.title, style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(example.title), style = MaterialTheme.typography.titleLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ExampleTile(example, good = false, Modifier.weight(1f))
             ExampleTile(example, good = true, Modifier.weight(1f))
@@ -153,14 +156,16 @@ private fun ExampleRow(example: Example) {
 
 @Composable
 private fun ExampleTile(example: Example, good: Boolean, modifier: Modifier) {
-    val caption = if (good) example.better else example.avoid
+    val caption = stringResource(if (good) example.better else example.avoid)
+    val verdict = stringResource(if (good) R.string.better else R.string.avoid)
+    val description = stringResource(R.string.label_colon_text, verdict, caption)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(18.dp))
-                .semantics { contentDescription = (if (good) "Better: " else "Avoid: ") + caption },
+                .semantics { contentDescription = description },
         ) {
             Canvas(Modifier.fillMaxSize()) { drawExample(example, good) }
             Surface(
@@ -172,7 +177,7 @@ private fun ExampleTile(example: Example, good: Boolean, modifier: Modifier) {
                 Row(Modifier.padding(start = 6.dp, end = 10.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(if (good) Icons.Default.Check else Icons.Default.Close, null, Modifier.size(14.dp))
                     Spacer(Modifier.size(4.dp))
-                    Text(if (good) "Better" else "Avoid", style = MaterialTheme.typography.labelMedium)
+                    Text(verdict, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -181,14 +186,14 @@ private fun ExampleTile(example: Example, good: Boolean, modifier: Modifier) {
 }
 
 /** The shot list: the angles buyers look for, in the order to take them. */
-private enum class Shot(val title: String, val body: String) {
-    Front("Front", "The whole item, flat and straight. This is your main photo."),
-    Back("Back", "Turn it over and shoot the same way."),
-    Label("Brand label", "Close enough to read the brand."),
-    Tag("Size and care tag", "Size, material and care, so buyers don't have to ask."),
-    Detail("Details", "Fabric, zip, buttons or print, up close."),
-    Flaw("Flaws", "A close-up of each stain, tear or mark."),
-    Measure("Measurements", "A tape across the chest or along the length."),
+private enum class Shot(@StringRes val title: Int, @StringRes val body: Int) {
+    Front(R.string.shot_front, R.string.shot_front_body),
+    Back(R.string.shot_back, R.string.shot_back_body),
+    Label(R.string.shot_label, R.string.shot_label_body),
+    Tag(R.string.shot_tag, R.string.shot_tag_body),
+    Detail(R.string.shot_detail, R.string.shot_detail_body),
+    Flaw(R.string.flaws, R.string.shot_flaw_body),
+    Measure(R.string.shot_measure, R.string.shot_measure_body),
 }
 
 @Composable
@@ -206,13 +211,16 @@ private fun ShotGrid() {
 
 @Composable
 private fun ShotTile(number: Int, shot: Shot, modifier: Modifier) {
+    val title = stringResource(shot.title)
+    val body = stringResource(shot.body)
+    val description = stringResource(R.string.label_colon_text, title, body)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(18.dp))
-                .semantics { contentDescription = "${shot.title}: ${shot.body}" },
+                .semantics { contentDescription = description },
         ) {
             Canvas(Modifier.fillMaxSize()) { drawShot(shot) }
             Surface(
@@ -224,8 +232,8 @@ private fun ShotTile(number: Int, shot: Shot, modifier: Modifier) {
                 Box(contentAlignment = Alignment.Center) { Text("$number", style = MaterialTheme.typography.labelMedium) }
             }
         }
-        Text(shot.title, style = MaterialTheme.typography.titleSmall)
-        Text(shot.body, style = MaterialTheme.typography.bodySmall, color = Studio.Muted)
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        Text(body, style = MaterialTheme.typography.bodySmall, color = Studio.Muted)
     }
 }
 

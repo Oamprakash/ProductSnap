@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.editor
 
+import androidx.compose.ui.res.stringResource
+import com.oamsapps.productsnap.R
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -30,11 +32,12 @@ import com.oamsapps.productsnap.image.ImageRenderer
 @Composable
 fun FlawCanvas(bitmap: Bitmap, flaws: List<Flaw>, onTap: (Float, Float) -> Unit, modifier: Modifier = Modifier) {
     val image = remember(bitmap) { bitmap.asImageBitmap() }
+    val description = stringResource(R.string.flaw_canvas_desc)
     Box(
         modifier
             .fillMaxSize()
             .clip(RoundedCornerShape(12.dp))
-            .semantics { contentDescription = "Photo. Tap a flaw to circle it; tap a circle to remove it." }
+            .semantics { contentDescription = description }
             .pointerInput(bitmap) {
                 detectTapGestures { p -> onTap(p.x / size.width, p.y / size.height) }
             },
