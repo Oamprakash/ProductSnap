@@ -1,11 +1,11 @@
 TITLE
-ProductSnap: Verkaufsfotos
+ProductSnap: Produktfotos
 
 SHORT DESCRIPTION
-Hintergrund weg, Licht perfekt: Fotos für Vinted, eBay, Etsy und Kleinanzeigen
+Hintergrund entfernen & Produktfotos bearbeiten: Vinted, eBay, Kleinanzeigen
 
 FULL DESCRIPTION
-Mach aus schnellen Handyfotos klare, helle Angebotsfotos, die sich verkaufen. ProductSnap ist ein Foto-Editor für Wiederverkäufer auf Vinted, eBay, Kleinanzeigen, Etsy, Depop und Momox Fashion.
+Mit ProductSnap kannst du den Hintergrund entfernen und Produktfotos bearbeiten, gemacht für Wiederverkäufer. Mach aus schnellen Handyfotos klare, helle Produktfotos mit weißem Hintergrund, fertig für Vinted, eBay, Kleinanzeigen, Etsy, Depop und Momox Fashion.
 
 WEISSER HINTERGRUND MIT EINEM TIPP
 • Hintergrund automatisch entfernen und den Artikel auf reines Weiß, sanftes Grau oder jede Farbe setzen
@@ -32,6 +32,9 @@ FOTO-TIPPS FÜR VERKÄUFER
 PRIVAT VON GRUND AUF
 • Alle Bearbeitungen passieren auf deinem Handy. Deine Fotos werden nie hochgeladen.
 • Gespeichert unter Pictures/ProductSnap, bereit zum Teilen in jeder Verkaufs-App
+
+WARUM WIEDERVERKÄUFER PRODUCTSNAP NUTZEN
+Hintergrund entfernen, passend fürs Angebot: Produktfotos bekommen das richtige Format für jede Plattform, die echten Farben und der Zustand des Artikels bleiben erhalten, und ein ganzer Stapel Produktfotos bekommt in einem Durchgang denselben weißen Hintergrund und dasselbe Licht.
 
 Alle Funktionen sind zum Start kostenlos.
 

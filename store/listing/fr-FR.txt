@@ -1,11 +1,11 @@
 TITLE
-ProductSnap : photos revendeur
+ProductSnap: Supprimer le fond
 
 SHORT DESCRIPTION
-Fond blanc et lumière parfaite pour vos photos Vinted, eBay, Etsy et Leboncoin
+Supprimer le fond et retoucher vos photos produit : Vinted, eBay, Leboncoin
 
 FULL DESCRIPTION
-Transformez de simples photos prises au téléphone en photos d'annonce nettes et lumineuses qui font vendre. ProductSnap est un éditeur photo pensé pour les revendeurs sur Vinted, eBay, Leboncoin, Etsy, Depop et Vestiaire Collective.
+ProductSnap supprime l'arrière-plan de vos photos et retouche vos photos produit, pour les revendeurs. Transformez de simples photos prises au téléphone en photos d'annonce nettes et lumineuses sur fond blanc, prêtes pour Vinted, eBay, Leboncoin, Etsy, Depop et Vestiaire Collective.
 
 FOND BLANC EN UN GESTE
 • Détourage automatique de l'article sur fond blanc pur, gris doux ou la couleur de votre choix
@@ -32,6 +32,9 @@ CONSEILS PHOTO POUR VENDEURS
 CONFIDENTIEL PAR NATURE
 • Toutes les retouches se font sur votre téléphone. Vos photos ne sont jamais envoyées en ligne.
 • Enregistrées dans Pictures/ProductSnap, prêtes à partager dans n'importe quelle appli de vente
+
+POURQUOI LES REVENDEURS UTILISENT PRODUCTSNAP
+Un outil pour supprimer le fond qui comprend les annonces : chaque photo produit sort au bon format pour la plateforme, les couleurs et l'état réels de l'article sont respectés, et tout un lot de photos produit reçoit le même fond blanc et la même lumière en une fois.
 
 Toutes les fonctions sont gratuites pendant le lancement.
 

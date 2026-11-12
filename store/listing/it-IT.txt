@@ -1,11 +1,11 @@
 TITLE
-ProductSnap: foto per vendere
+ProductSnap: Rimuovi sfondo
 
 SHORT DESCRIPTION
-Sfondo bianco e luce perfetta per le tue foto su Vinted, Subito, eBay ed Etsy
+Rimuovi sfondo e modifica foto prodotto per Vinted, Subito, eBay ed Etsy
 
 FULL DESCRIPTION
-Trasforma veloci foto col telefono in foto per annunci pulite e luminose che vendono. ProductSnap è un editor di foto pensato per chi rivende su Vinted, Subito, eBay, Etsy, Depop e Vestiaire Collective.
+ProductSnap serve a rimuovere lo sfondo e modificare le foto prodotto, pensato per chi rivende. Trasforma veloci foto col telefono in foto prodotto pulite e luminose su sfondo bianco, pronte per Vinted, Subito, eBay, Etsy, Depop e Vestiaire Collective.
 
 SFONDO BIANCO CON UN TOCCO
 • Rimuovi lo sfondo in automatico e metti l'articolo su bianco puro, grigio tenue o qualsiasi colore
@@ -32,6 +32,9 @@ CONSIGLI FOTO PER VENDITORI
 PRIVATO PER SCELTA
 • Tutte le modifiche avvengono sul tuo telefono. Le tue foto non vengono mai caricate online.
 • Salvate in Pictures/ProductSnap, pronte da condividere in qualsiasi app di vendita
+
+PERCHÉ CHI RIVENDE USA PRODUCTSNAP
+Un'app per rimuovere lo sfondo che capisce gli annunci: ogni foto prodotto esce nel formato giusto per la piattaforma, i colori e le condizioni reali dell'articolo restano fedeli, e un intero gruppo di foto prodotto riceve lo stesso sfondo bianco e la stessa luce in una volta.
 
 Tutte le funzioni sono gratuite durante il lancio.
 

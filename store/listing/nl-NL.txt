@@ -1,11 +1,11 @@
 TITLE
-ProductSnap: verkoopfoto's
+ProductSnap: Productfoto's
 
 SHORT DESCRIPTION
-Achtergrond weg en mooi licht voor foto's op Vinted, Marktplaats, eBay en Etsy
+Achtergrond verwijderen en productfoto's bewerken: Vinted, Marktplaats, eBay
 
 FULL DESCRIPTION
-Maak van snelle telefoonfoto's heldere, lichte advertentiefoto's die verkopen. ProductSnap is een foto-editor voor wederverkopers op Vinted, Marktplaats, eBay, Etsy, Depop en 2dehands.
+Met ProductSnap kun je de achtergrond verwijderen en productfoto's bewerken, gemaakt voor wederverkopers. Maak van snelle telefoonfoto's heldere, lichte productfoto's met een witte achtergrond, klaar voor Vinted, Marktplaats, eBay, Etsy, Depop en 2dehands.
 
 WITTE ACHTERGROND MET ÉÉN TIK
 • Verwijder de achtergrond automatisch en zet je artikel op puur wit, zacht grijs of elke kleur
@@ -32,6 +32,9 @@ FOTOTIPS VOOR VERKOPERS
 PRIVÉ VANAF HET BEGIN
 • Alle bewerkingen gebeuren op je telefoon. Je foto's worden nooit geüpload.
 • Opgeslagen in Pictures/ProductSnap, klaar om te delen in elke verkoop-app
+
+WAAROM WEDERVERKOPERS PRODUCTSNAP GEBRUIKEN
+Achtergrond verwijderen die past bij je advertentie: productfoto's krijgen de juiste vorm voor elk platform, de echte kleuren en staat van het artikel blijven behouden, en een hele reeks productfoto's krijgt in één keer dezelfde witte achtergrond en hetzelfde licht.
 
 Alle functies zijn gratis tijdens de lancering.
 

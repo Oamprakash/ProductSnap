@@ -1,11 +1,11 @@
 TITLE
-ProductSnap: fotos para vender
+ProductSnap: Quitar fondo foto
 
 SHORT DESCRIPTION
-Quita el fondo y mejora la luz de tus fotos para Vinted, Wallapop, eBay y Etsy
+Quitar fondo y editar fotos de producto para Vinted, Wallapop, eBay y Etsy
 
 FULL DESCRIPTION
-Convierte fotos rápidas del móvil en fotos de anuncio limpias y luminosas que venden. ProductSnap es un editor de fotos pensado para revendedores en Vinted, Wallapop, eBay, Etsy, Depop y Mercari.
+ProductSnap sirve para quitar el fondo y editar fotos de producto, pensado para revendedores. Convierte fotos rápidas del móvil en fotos de producto limpias y luminosas con fondo blanco, listas para Vinted, Wallapop, eBay, Etsy, Depop y Mercari.
 
 FONDO BLANCO CON UN TOQUE
 • Quita el fondo automáticamente y pon el artículo sobre blanco puro, gris suave o cualquier color
@@ -32,6 +32,9 @@ CONSEJOS DE FOTO PARA VENDEDORES
 PRIVADO POR DISEÑO
 • Todas las ediciones se hacen en tu móvil. Tus fotos nunca se suben a internet.
 • Se guardan en Pictures/ProductSnap, listas para compartir en cualquier app de venta
+
+POR QUÉ LO USAN LOS REVENDEDORES
+Una app para quitar el fondo que entiende los anuncios: cada foto de producto sale con el formato de su plataforma, los colores y el estado reales del artículo se mantienen, y todo un lote de fotos de producto recibe el mismo fondo blanco y la misma luz de una vez.
 
 Todas las funciones son gratis durante el lanzamiento.
 

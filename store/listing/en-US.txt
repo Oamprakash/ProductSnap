@@ -1,11 +1,11 @@
 TITLE
-ProductSnap: Reseller Photos
+ProductSnap Background Remover
 
 SHORT DESCRIPTION
-Remove backgrounds and fix lighting for eBay, Poshmark, Vinted and Etsy photos
+Background remover & product photo editor for eBay, Poshmark, Vinted and Etsy
 
 FULL DESCRIPTION
-Turn quick phone photos into clean, bright listing photos that sell. ProductSnap is a photo editor made for resellers on eBay, Poshmark, Vinted, Depop, Etsy and Mercari.
+ProductSnap is a background remover and product photo editor made for resellers. Turn quick phone photos into clean, bright product photos on a white background, ready for eBay, Poshmark, Vinted, Depop, Etsy and Mercari.
 
 WHITE BACKGROUND IN ONE TAP
 • Remove the background automatically and put your item on pure white, soft grey or any color
@@ -32,6 +32,9 @@ PHOTO TIPS FOR SELLERS
 PRIVATE BY DESIGN
 • Every edit happens on your phone. Your photos are never uploaded.
 • Saved to Pictures/ProductSnap, ready to share to any selling app
+
+WHY RESELLERS USE PRODUCTSNAP
+A background remover that understands listings: product photos come out the right shape for each marketplace, the item's real colours and condition stay true, and a whole batch of product photos gets the same white background and light in one go.
 
 Every feature is free during launch.
 
