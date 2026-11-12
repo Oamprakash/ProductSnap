@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.home
 
+import com.oamsapps.productsnap.telemetry.Telemetry
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.res.stringResource
 import com.oamsapps.productsnap.R
 import android.content.ContentUris
@@ -133,6 +135,13 @@ fun HomeScreen(
                 Text("ProductSnap", style = MaterialTheme.typography.titleLarge)
                 BuildTag()
             }
+            val shareText = stringResource(R.string.share_app_text, PLAY_LINK)
+            PaperIconButton(Icons.Default.Share, stringResource(R.string.share_app), onClick = {
+                Telemetry.event("app_shared")
+                val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, shareText)
+                runCatching { context.startActivity(Intent.createChooser(send, null)) }
+            })
+            Spacer(Modifier.size(8.dp))
             PaperIconButton(Icons.Default.Lightbulb, stringResource(R.string.photo_tips), onClick = { showTips = true })
         }
 
@@ -395,3 +404,6 @@ private fun view(context: Context, uri: Uri) {
         context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "image/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
     }
 }
+
+/** Store page link people share from Home; the referrer shows these installs separately in Play statistics. */
+private const val PLAY_LINK = "https://play.google.com/store/apps/details?id=com.oamsapps.productsnap&referrer=utm_source%3Dapp_share"

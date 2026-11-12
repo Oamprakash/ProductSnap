@@ -1,5 +1,10 @@
 package com.oamsapps.productsnap.ui
 
+import com.oamsapps.productsnap.image.ImageSaver
+import android.util.Log
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
 import com.oamsapps.productsnap.R
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -29,7 +34,14 @@ fun rememberTakePhoto(onPhoto: (Uri) -> Unit): () -> Unit {
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
         val uri = pending?.let(Uri::parse)
         pending = null
-        if (saved && uri != null) onPhoto(uri)
+        if (saved && uri != null) {
+            // Keep the untouched shot in the gallery too; the cache copy is only temporary.
+            val app = context.applicationContext
+            CoroutineScope(Dispatchers.IO).launch {
+                if (ImageSaver.keepOriginal(app, uri) == null) Log.w("Camera", "Couldn't keep the original shot")
+            }
+            onPhoto(uri)
+        }
     }
     return {
         val uri = newShot(context)

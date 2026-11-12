@@ -336,6 +336,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
                 .onFailure {
+                    Telemetry.event("cutout_failed", "reason" to it.javaClass.simpleName)
                     _state.update { s2 ->
                         s2.copy(isRemovingBackground = false, message = str(R.string.model_not_ready))
                     }
@@ -751,13 +752,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(isSaving = true, message = null) }
             runCatching {
                 val uris = mutableListOf<Uri>()
+                val names = ImageSaver.ItemNames()
                 val out = ImageRenderer.render(settings.renderSpec(content, s.backgroundPhoto).copy(marks = marks))
                 try {
-                    uris += ImageSaver.saveToGallery(getApplication(), out, transparent = settings.transparent, quality = settings.jpegQuality)
+                    uris += ImageSaver.saveToGallery(getApplication(), out, transparent = settings.transparent, quality = settings.jpegQuality, name = names.main())
                 } finally {
                     out.recycle()
                 }
-                s.flaws.forEach { f -> uris += saveCloseUp(original, f, s.effectiveAdjustments, settings.premium) }
+                s.flaws.forEach { f -> uris += saveCloseUp(original, f, s.effectiveAdjustments, settings.premium, names.flaw()) }
                 uris
             }.onSuccess { uris ->
                 if (freeSave) FreeAllowance.markUsed(getApplication())
@@ -779,7 +781,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 val message = when {
                     share -> null
                     freeSave -> "$saved. ${str(R.string.saved_free_suffix)}"
-                    else -> saved
+                    else -> "$saved. ${str(R.string.original_unchanged)}"
                 }
                 _state.update { it.copy(isSaving = false, message = message, shareUris = if (share) uris else null) }
             }.onFailure { e ->
@@ -791,7 +793,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun shareHandled() = _state.update { it.copy(shareUris = null) }
 
     /** The flaw as photographed (real background, Auto light and sliders applied), as its own photo. */
-    private suspend fun saveCloseUp(original: Bitmap, f: Flaw, adjustments: Adjustments, premium: Boolean): Uri {
+    private suspend fun saveCloseUp(original: Bitmap, f: Flaw, adjustments: Adjustments, premium: Boolean, name: String): Uri {
         val side = minOf(original.width, original.height)
         val r = FlawGeometry.closeUp(original.width, original.height, f.x * original.width, f.y * original.height, f.r * side)
         val crop = withContext(Dispatchers.Default) { Bitmap.createBitmap(original, r[0], r[1], r[2] - r[0], r[3] - r[1]) }
@@ -805,7 +807,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         )
         val out = ImageRenderer.render(spec)
         try {
-            return ImageSaver.saveToGallery(getApplication(), out, transparent = false, quality = 92)
+            return ImageSaver.saveToGallery(getApplication(), out, transparent = false, quality = 92, name = name)
         } finally {
             out.recycle()
             if (crop !== original) crop.recycle()

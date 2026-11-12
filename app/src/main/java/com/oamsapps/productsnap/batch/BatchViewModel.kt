@@ -1,5 +1,6 @@
 package com.oamsapps.productsnap.batch
 
+import com.oamsapps.productsnap.telemetry.Telemetry
 import com.oamsapps.productsnap.R
 import com.oamsapps.productsnap.ui.ReviewPrompt
 import android.util.Log
@@ -128,7 +129,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
                 refresh(running)
                 if (wasRunning == true && !running) {
                     val s = _state.value
-                    _state.update { it.copy(message = str(R.string.batch_saved_message, s.savedCount, s.items.size)) }
+                    _state.update { it.copy(message = str(R.string.batch_saved_message, s.savedCount, s.items.size) + ". " + str(R.string.originals_unchanged)) }
                     ReviewPrompt.recordSaved(getApplication(), s.savedCount)
                 }
                 wasRunning = running
@@ -266,6 +267,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         _state.update { it.copy(isRunning = true, message = null) }
+        Telemetry.event("batch_started", "photos" to _state.value.queuedCount)
         viewModelScope.launch {
             val job = store.update { j ->
                 j.copy(

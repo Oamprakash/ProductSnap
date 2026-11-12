@@ -345,6 +345,15 @@
     <string name="no_product_desc">Kein Artikel gefunden. Tippen, um im Editor zu öffnen</string>
     <string name="needs_look_desc">Bitte prüfen: Das Freistellen ist misslungen. Tippen, um im Editor zu korrigieren</string>
     <string name="new_batch">Neuer Stapel</string>
+    <string name="share_app">ProductSnap teilen</string>
+    <string name="share_app_text">Ich nutze ProductSnap für saubere Angebotsfotos. Es ist kostenlos: %1$s</string>
+    <string name="hold_to_compare_light">Halten: ohne Licht</string>
+    <string name="without_light">Ohne Licht</string>
+    <string name="hold_to_see_without_light">Halten, um das Foto ohne Lichtanpassung zu sehen</string>
+    <string name="original_unchanged">Dein Originalfoto bleibt unverändert.</string>
+    <string name="originals_unchanged">Deine Originalfotos bleiben unverändert.</string>
+    <string name="tip_originals_title">Deine Originale bleiben unberührt</string>
+    <string name="tip_originals_body">Bearbeitungen werden immer als neue Fotos in Pictures/ProductSnap gespeichert. Fotos, die du in der App aufnimmst, bleiben zusätzlich unbearbeitet in Pictures/ProductSnap/Originals.</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d Fotos (mit %2$d Nahaufnahme) in Pictures/ProductSnap gespeichert</item>
         <item quantity="other">%1$d Fotos (mit %2$d Nahaufnahmen) in Pictures/ProductSnap gespeichert</item>
