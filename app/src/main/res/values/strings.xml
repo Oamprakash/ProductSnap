@@ -348,6 +348,9 @@
     <string name="new_batch">New batch</string>
     <string name="share_app">Share ProductSnap</string>
     <string name="share_app_text">I use ProductSnap to clean up my listing photos. It\'s free: %1$s</string>
+    <string name="hold_to_compare_light">Hold to compare light</string>
+    <string name="without_light">Without light</string>
+    <string name="hold_to_see_without_light">Hold to see the photo without light changes</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">Saved %1$d photos (with %2$d close-up) to Pictures/ProductSnap</item>
         <item quantity="other">Saved %1$d photos (with %2$d close-ups) to Pictures/ProductSnap</item>

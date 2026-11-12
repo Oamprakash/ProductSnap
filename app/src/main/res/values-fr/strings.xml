@@ -347,6 +347,9 @@
     <string name="new_batch">Nouveau lot</string>
     <string name="share_app">Partager ProductSnap</string>
     <string name="share_app_text">J\'utilise ProductSnap pour soigner mes photos d\'annonce. C\'est gratuit : %1$s</string>
+    <string name="hold_to_compare_light">Maintenir : sans lumière</string>
+    <string name="without_light">Sans lumière</string>
+    <string name="hold_to_see_without_light">Maintenir pour voir la photo sans les réglages de lumière</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d photos enregistrées (dont %2$d gros plan) dans Pictures/ProductSnap</item>
         <item quantity="other">%1$d photos enregistrées (dont %2$d gros plans) dans Pictures/ProductSnap</item>

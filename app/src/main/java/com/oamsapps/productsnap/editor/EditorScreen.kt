@@ -202,7 +202,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onOpenBatch: () -> Uni
                     }
                     else -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         StatusRow(state)
-                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Preview(state) }
+                        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Preview(state, lightOnly = tab == EditorTab.Light) }
                     }
                 }
             }
@@ -631,7 +631,7 @@ private fun WarningCard(warning: PhotoWarning, onFix: () -> Unit, onIgnore: () -
 }
 
 @Composable
-private fun Preview(state: EditorState) {
+private fun Preview(state: EditorState, lightOnly: Boolean = false) {
     val bmp = state.displayBitmap ?: return
     val image = remember(bmp) { bmp.asImageBitmap() }
     // Fresh zoom per photo / edit, so a new result is always shown whole first.
@@ -659,11 +659,13 @@ private fun Preview(state: EditorState) {
             Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(20.dp))
-                .then(if (fillsBackground && !comparing) Modifier.backgroundStyle(state.background, photo) else Modifier)
+                .then(if (fillsBackground && (!comparing || (lightOnly && filter != null))) Modifier.backgroundStyle(state.background, photo) else Modifier)
                 .pinchToZoom(zoom),
             contentAlignment = Alignment.Center,
         ) {
-            if (comparing && originalImage != null) {
+            // On the Light tab, compare shows this same edit without the light and sliders, so only the colour differs.
+            val compareLight = lightOnly && filter != null
+            if (comparing && originalImage != null && !compareLight) {
                 Image(
                     bitmap = originalImage,
                     contentDescription = stringResource(R.string.original_photo),
@@ -674,7 +676,7 @@ private fun Preview(state: EditorState) {
                 Image(
                     bitmap = image,
                     contentDescription = stringResource(R.string.edited_photo_desc),
-                    colorFilter = filter,
+                    colorFilter = if (comparing && compareLight) null else filter,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize().zoomTransform(zoom).padding(inset),
                 )
@@ -690,7 +692,7 @@ private fun Preview(state: EditorState) {
             }
             // Only once something has changed: a cutout, crop, erase, light or slider change, or flaw circles.
             val edited = state.source != null && (state.source !== bmp || filter != null || marks.isNotEmpty())
-            val holdToSeeOriginal = stringResource(R.string.hold_to_see_original)
+            val holdToSeeOriginal = stringResource(if (compareLight) R.string.hold_to_see_without_light else R.string.hold_to_see_original)
             if (edited) {
                 Surface(
                     shape = RoundedCornerShape(999.dp),
@@ -716,7 +718,14 @@ private fun Preview(state: EditorState) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Compare, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text(if (comparing) stringResource(R.string.original_photo) else stringResource(R.string.hold_to_compare), style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            when {
+                                !comparing -> stringResource(if (compareLight) R.string.hold_to_compare_light else R.string.hold_to_compare)
+                                compareLight -> stringResource(R.string.without_light)
+                                else -> stringResource(R.string.original_photo)
+                            },
+                            style = MaterialTheme.typography.labelLarge,
+                        )
                     }
                 }
             }

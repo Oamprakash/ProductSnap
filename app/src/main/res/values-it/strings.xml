@@ -347,6 +347,9 @@
     <string name="new_batch">Nuovo gruppo</string>
     <string name="share_app">Condividi ProductSnap</string>
     <string name="share_app_text">Uso ProductSnap per sistemare le foto dei miei annunci. È gratis: %1$s</string>
+    <string name="hold_to_compare_light">Tieni premuto: senza luce</string>
+    <string name="without_light">Senza luce</string>
+    <string name="hold_to_see_without_light">Tieni premuto per vedere la foto senza le regolazioni di luce</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d foto salvate (con %2$d primo piano) in Pictures/ProductSnap</item>
         <item quantity="other">%1$d foto salvate (con %2$d primi piani) in Pictures/ProductSnap</item>
