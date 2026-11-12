@@ -1,5 +1,6 @@
 package com.oamsapps.productsnap
 
+import com.oamsapps.productsnap.telemetry.Telemetry
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -99,6 +100,7 @@ class MainActivity : ComponentActivity() {
                                 // Replayed from Home: back returns there. First launch: back leaves the app as usual.
                                 BackHandler(enabled = seller.introSeen) { home() }
                                 IntroScreen(onDone = {
+                                    Telemetry.event("intro_done", "first_time" to !seller.introSeen)
                                     SellerPrefs.markIntroSeen(this@MainActivity)
                                     screen.value = if (SellerPrefs.seller.value.onboarded) Screen.Home else Screen.Onboarding
                                 })
@@ -106,11 +108,16 @@ class MainActivity : ComponentActivity() {
                             Screen.Onboarding -> OnboardingScreen(
                                 initial = seller.markets,
                                 onDone = { markets ->
+                                    Telemetry.event("onboarding_done", "markets" to markets.size, "skipped" to false)
                                     SellerPrefs.saveMarkets(this@MainActivity, markets)
                                     editorVm.setMarketplace(SellerPrefs.seller.value.primary)
                                     home()
                                 },
-                                onSkip = { SellerPrefs.saveMarkets(this@MainActivity, seller.markets); home() },
+                                onSkip = {
+                                    Telemetry.event("onboarding_done", "markets" to seller.markets.size, "skipped" to true)
+                                    SellerPrefs.saveMarkets(this@MainActivity, seller.markets)
+                                    home()
+                                },
                             )
                             Screen.Home -> HomeScreen(
                                 onOpenPhoto = { uri -> openPhoto(uri) },
@@ -171,6 +178,7 @@ class MainActivity : ComponentActivity() {
 
     /** A new photo starts with the look for the seller's marketplace. */
     private fun openPhoto(uri: Uri) {
+        Telemetry.event("photo_opened")
         editorVm.setMarketplace(SellerPrefs.seller.value.primary)
         editorVm.loadImage(uri)
         editorReturn.value = Screen.Home

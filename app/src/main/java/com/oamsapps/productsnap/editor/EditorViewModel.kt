@@ -336,6 +336,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
                 .onFailure {
+                    Telemetry.event("cutout_failed", "reason" to it.javaClass.simpleName)
                     _state.update { s2 ->
                         s2.copy(isRemovingBackground = false, message = str(R.string.model_not_ready))
                     }
