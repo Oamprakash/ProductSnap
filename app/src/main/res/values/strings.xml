@@ -351,6 +351,10 @@
     <string name="hold_to_compare_light">Hold to compare light</string>
     <string name="without_light">Without light</string>
     <string name="hold_to_see_without_light">Hold to see the photo without light changes</string>
+    <string name="original_unchanged">Your original photo is unchanged.</string>
+    <string name="originals_unchanged">Your original photos are unchanged.</string>
+    <string name="tip_originals_title">Your originals stay untouched</string>
+    <string name="tip_originals_body">Edits are always saved as new photos in Pictures/ProductSnap. Photos you take in the app are also kept, unedited, in Pictures/ProductSnap/Originals.</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">Saved %1$d photos (with %2$d close-up) to Pictures/ProductSnap</item>
         <item quantity="other">Saved %1$d photos (with %2$d close-ups) to Pictures/ProductSnap</item>

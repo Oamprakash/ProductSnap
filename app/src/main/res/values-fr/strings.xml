@@ -350,6 +350,10 @@
     <string name="hold_to_compare_light">Maintenir : sans lumière</string>
     <string name="without_light">Sans lumière</string>
     <string name="hold_to_see_without_light">Maintenir pour voir la photo sans les réglages de lumière</string>
+    <string name="original_unchanged">Votre photo d\'origine n\'est pas modifiée.</string>
+    <string name="originals_unchanged">Vos photos d\'origine ne sont pas modifiées.</string>
+    <string name="tip_originals_title">Vos originaux restent intacts</string>
+    <string name="tip_originals_body">Les retouches sont toujours enregistrées comme nouvelles photos dans Pictures/ProductSnap. Les photos prises dans l\'appli sont aussi conservées, sans retouche, dans Pictures/ProductSnap/Originals.</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d photos enregistrées (dont %2$d gros plan) dans Pictures/ProductSnap</item>
         <item quantity="other">%1$d photos enregistrées (dont %2$d gros plans) dans Pictures/ProductSnap</item>

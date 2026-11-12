@@ -781,7 +781,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 val message = when {
                     share -> null
                     freeSave -> "$saved. ${str(R.string.saved_free_suffix)}"
-                    else -> saved
+                    else -> "$saved. ${str(R.string.original_unchanged)}"
                 }
                 _state.update { it.copy(isSaving = false, message = message, shareUris = if (share) uris else null) }
             }.onFailure { e ->

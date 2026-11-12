@@ -129,7 +129,7 @@ class BatchViewModel(app: Application) : AndroidViewModel(app) {
                 refresh(running)
                 if (wasRunning == true && !running) {
                     val s = _state.value
-                    _state.update { it.copy(message = str(R.string.batch_saved_message, s.savedCount, s.items.size)) }
+                    _state.update { it.copy(message = str(R.string.batch_saved_message, s.savedCount, s.items.size) + ". " + str(R.string.originals_unchanged)) }
                     ReviewPrompt.recordSaved(getApplication(), s.savedCount)
                 }
                 wasRunning = running

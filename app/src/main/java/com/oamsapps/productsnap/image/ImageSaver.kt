@@ -22,6 +22,35 @@ object ImageSaver {
         fun flaw() = "productsnap_${stamp}_${next++}_flaw"
     }
 
+    /**
+     * Keeps a photo taken with "Take a photo" in Pictures/ProductSnap/Originals, byte for byte, so the seller can
+     * go back to the untouched shot later. Returns null if it couldn't be kept; editing carries on either way.
+     */
+    suspend fun keepOriginal(context: Context, source: Uri): Uri? = withContext(Dispatchers.IO) {
+        val resolver = context.contentResolver
+        val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, "productsnap_${stamp}_original.jpg")
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/ProductSnap/Originals")
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return@withContext null
+        try {
+            val copied = resolver.openInputStream(source)?.use { input ->
+                resolver.openOutputStream(uri)?.use { output -> input.copyTo(output) }
+            }
+            checkNotNull(copied) { "Couldn't copy the photo" }
+            values.clear()
+            values.put(MediaStore.Images.Media.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+            uri
+        } catch (e: Exception) {
+            resolver.delete(uri, null, null)
+            null
+        }
+    }
+
     /** Saves to Pictures/ProductSnap. No storage permission needed on API 29+. */
     suspend fun saveToGallery(
         context: Context,

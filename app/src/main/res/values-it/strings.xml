@@ -350,6 +350,10 @@
     <string name="hold_to_compare_light">Tieni premuto: senza luce</string>
     <string name="without_light">Senza luce</string>
     <string name="hold_to_see_without_light">Tieni premuto per vedere la foto senza le regolazioni di luce</string>
+    <string name="original_unchanged">La tua foto originale resta invariata.</string>
+    <string name="originals_unchanged">Le tue foto originali restano invariate.</string>
+    <string name="tip_originals_title">I tuoi originali restano intatti</string>
+    <string name="tip_originals_body">Le modifiche vengono sempre salvate come nuove foto in Pictures/ProductSnap. Le foto che scatti nell\'app vengono conservate anche senza modifiche in Pictures/ProductSnap/Originals.</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d foto salvate (con %2$d primo piano) in Pictures/ProductSnap</item>
         <item quantity="other">%1$d foto salvate (con %2$d primi piani) in Pictures/ProductSnap</item>

@@ -1,5 +1,6 @@
 package com.oamsapps.productsnap.ui
 
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.ui.res.stringResource
 import com.oamsapps.productsnap.R
 import androidx.annotation.StringRes
@@ -80,6 +81,7 @@ private val tips = listOf(
     Tip(Icons.Default.FlashOff, R.string.tip_flash_title, R.string.tip_flash_body),
     Tip(Icons.Default.CenterFocusStrong, R.string.tip_focus_title, R.string.tip_focus_body),
     Tip(Icons.Default.Adjust, R.string.tip_flaws_title, R.string.tip_flaws_body),
+    Tip(Icons.Default.Lock, R.string.tip_originals_title, R.string.tip_originals_body),
 )
 
 @Composable
