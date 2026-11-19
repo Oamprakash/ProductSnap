@@ -207,6 +207,7 @@ fun HomeScreen(
             }
         }
 
+        ProfitInterestCard()
         PlanStrip(premium = premium, freeLeft = freeLeft, onUpgrade = onOpenPaywall)
         Spacer(Modifier.height(8.dp))
     }

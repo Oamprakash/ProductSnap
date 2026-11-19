@@ -354,6 +354,12 @@
     <string name="originals_unchanged">Tus fotos originales no se modifican.</string>
     <string name="tip_originals_title">Tus originales no se tocan</string>
     <string name="tip_originals_body">Las ediciones siempre se guardan como fotos nuevas en Pictures/ProductSnap. Las fotos que haces en la app también se conservan, sin editar, en Pictures/ProductSnap/Originals.</string>
+    <string name="profit_label">¿Próximamente?</string>
+    <string name="profit_title">¿Controlar también tus beneficios?</string>
+    <string name="profit_body">Guarda cada artículo con lo que pagaste, márcalo como vendido y ve tu beneficio real después de comisiones y envío.</string>
+    <string name="profit_yes">Lo usaría</string>
+    <string name="profit_no">No es para mí</string>
+    <string name="profit_thanks">¡Gracias! Nos ayuda a decidir qué hacer después.</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d fotos guardadas (con %2$d primer plano) en Pictures/ProductSnap</item>
         <item quantity="other">%1$d fotos guardadas (con %2$d primeros planos) en Pictures/ProductSnap</item>
