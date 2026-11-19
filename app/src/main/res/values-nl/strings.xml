@@ -354,6 +354,12 @@
     <string name="originals_unchanged">Je originele foto\'s blijven ongewijzigd.</string>
     <string name="tip_originals_title">Je originelen blijven onaangetast</string>
     <string name="tip_originals_body">Bewerkingen worden altijd als nieuwe foto\'s opgeslagen in Pictures/ProductSnap. Foto\'s die je in de app maakt, blijven ook onbewerkt bewaard in Pictures/ProductSnap/Originals.</string>
+    <string name="profit_label">Binnenkort?</string>
+    <string name="profit_title">Ook je winst bijhouden?</string>
+    <string name="profit_body">Sla elk artikel op met wat je betaalde, markeer het als verkocht en zie je echte winst na platform- en verzendkosten.</string>
+    <string name="profit_yes">Zou ik gebruiken</string>
+    <string name="profit_no">Niks voor mij</string>
+    <string name="profit_thanks">Bedankt! Dat helpt ons kiezen wat we hierna maken.</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d foto\'s (met %2$d close-up) opgeslagen in Pictures/ProductSnap</item>
         <item quantity="other">%1$d foto\'s (met %2$d close-ups) opgeslagen in Pictures/ProductSnap</item>

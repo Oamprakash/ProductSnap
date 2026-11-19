@@ -34,6 +34,9 @@ object ReviewPrompt {
     /** True when the app should show the review sheet at the next good moment. */
     val due: StateFlow<Boolean> = _due.asStateFlow()
 
+    /** How many photos this install has saved so far. */
+    fun savedCount(context: Context): Int = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_SAVED, 0)
+
     /** Call after photos were saved successfully. */
     fun recordSaved(context: Context, photos: Int) {
         if (photos <= 0) return

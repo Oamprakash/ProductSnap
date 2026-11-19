@@ -354,6 +354,12 @@
     <string name="originals_unchanged">Deine Originalfotos bleiben unverändert.</string>
     <string name="tip_originals_title">Deine Originale bleiben unberührt</string>
     <string name="tip_originals_body">Bearbeitungen werden immer als neue Fotos in Pictures/ProductSnap gespeichert. Fotos, die du in der App aufnimmst, bleiben zusätzlich unbearbeitet in Pictures/ProductSnap/Originals.</string>
+    <string name="profit_label">Bald?</string>
+    <string name="profit_title">Auch deinen Gewinn verfolgen?</string>
+    <string name="profit_body">Speichere jeden Artikel mit dem Einkaufspreis, markiere ihn als verkauft und sieh deinen echten Gewinn nach Plattform- und Versandkosten.</string>
+    <string name="profit_yes">Würde ich nutzen</string>
+    <string name="profit_no">Nichts für mich</string>
+    <string name="profit_thanks">Danke! Das hilft uns bei der Entscheidung, was als Nächstes kommt.</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d Fotos (mit %2$d Nahaufnahme) in Pictures/ProductSnap gespeichert</item>
         <item quantity="other">%1$d Fotos (mit %2$d Nahaufnahmen) in Pictures/ProductSnap gespeichert</item>
