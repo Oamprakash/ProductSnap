@@ -48,6 +48,9 @@ class BackgroundRemover private constructor(context: Context) {
     private val prepareLock = Mutex()
     private var prepared = false
 
+    /** True once the model is downloaded and loaded; until then the first cutout also waits for the download. */
+    val isReady: Boolean get() = prepared
+
     /** Waits for the ML Kit model (downloaded by Play services) and runs it once. Called by [segment] anyway. */
     suspend fun warmUp() = withContext(Dispatchers.Default) {
         prepareLock.withLock {

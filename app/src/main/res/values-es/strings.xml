@@ -360,6 +360,9 @@
     <string name="profit_yes">Lo usaría</string>
     <string name="profit_no">No es para mí</string>
     <string name="profit_thanks">¡Gracias! Nos ayuda a decidir qué hacer después.</string>
+    <string name="try_again">Reintentar</string>
+    <string name="preparing_model">Preparando la eliminación de fondo… (solo la primera vez)</string>
+    <string name="model_offline">Sin conexión a internet. La eliminación de fondo se descarga una vez en el primer uso. Conéctate e inténtalo de nuevo.</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d fotos guardadas (con %2$d primer plano) en Pictures/ProductSnap</item>
         <item quantity="other">%1$d fotos guardadas (con %2$d primeros planos) en Pictures/ProductSnap</item>

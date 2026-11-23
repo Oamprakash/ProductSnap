@@ -103,11 +103,14 @@ fun PaywallSheet(onDismiss: () -> Unit) {
                         CircularProgressIndicator()
                     }
                 billing.plans.isEmpty() ->
-                    Text(
-                        billing.error ?: stringResource(R.string.billing_no_plans),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            billing.error ?: stringResource(R.string.billing_no_plans),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        TextButton(onClick = { Billing.refresh() }) { Text(stringResource(R.string.try_again)) }
+                    }
                 else ->
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         billing.plans.forEach { plan ->

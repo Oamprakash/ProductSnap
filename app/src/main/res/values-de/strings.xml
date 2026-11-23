@@ -360,6 +360,9 @@
     <string name="profit_yes">Würde ich nutzen</string>
     <string name="profit_no">Nichts für mich</string>
     <string name="profit_thanks">Danke! Das hilft uns bei der Entscheidung, was als Nächstes kommt.</string>
+    <string name="try_again">Erneut versuchen</string>
+    <string name="preparing_model">Hintergrundentfernung wird vorbereitet… (nur beim ersten Mal)</string>
+    <string name="model_offline">Keine Internetverbindung. Die Hintergrundentfernung wird beim ersten Mal einmalig geladen. Verbinde dich und versuch es noch einmal.</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d Fotos (mit %2$d Nahaufnahme) in Pictures/ProductSnap gespeichert</item>
         <item quantity="other">%1$d Fotos (mit %2$d Nahaufnahmen) in Pictures/ProductSnap gespeichert</item>

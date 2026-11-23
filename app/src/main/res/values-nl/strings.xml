@@ -360,6 +360,9 @@
     <string name="profit_yes">Zou ik gebruiken</string>
     <string name="profit_no">Niks voor mij</string>
     <string name="profit_thanks">Bedankt! Dat helpt ons kiezen wat we hierna maken.</string>
+    <string name="try_again">Opnieuw proberen</string>
+    <string name="preparing_model">Achtergrond verwijderen wordt klaargezet… (alleen de eerste keer)</string>
+    <string name="model_offline">Geen internetverbinding. Achtergrond verwijderen wordt bij het eerste gebruik eenmalig gedownload. Maak verbinding en probeer het opnieuw.</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d foto\'s (met %2$d close-up) opgeslagen in Pictures/ProductSnap</item>
         <item quantity="other">%1$d foto\'s (met %2$d close-ups) opgeslagen in Pictures/ProductSnap</item>

@@ -361,6 +361,9 @@
     <string name="profit_yes">I\'d use this</string>
     <string name="profit_no">Not for me</string>
     <string name="profit_thanks">Thanks! That helps decide what to build next.</string>
+    <string name="try_again">Try again</string>
+    <string name="preparing_model">Getting background removal ready… (first time only)</string>
+    <string name="model_offline">No internet connection. Background removal downloads once on first use. Connect and try again.</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">Saved %1$d photos (with %2$d close-up) to Pictures/ProductSnap</item>
         <item quantity="other">Saved %1$d photos (with %2$d close-ups) to Pictures/ProductSnap</item>

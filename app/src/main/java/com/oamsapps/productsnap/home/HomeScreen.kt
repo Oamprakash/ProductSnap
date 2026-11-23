@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.home
 
+import androidx.compose.foundation.background
+import com.oamsapps.productsnap.ui.ReviewPrompt
 import com.oamsapps.productsnap.telemetry.Telemetry
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.ui.res.stringResource
@@ -115,9 +117,11 @@ fun HomeScreen(
     var showMarkets by remember { mutableStateOf(false) }
 
     var recent by remember { mutableStateOf<List<Saved>>(emptyList()) }
+    var recentLoaded by remember { mutableStateOf(false) }
+    val hasSaved = remember { ReviewPrompt.savedCount(context) > 0 }
     var refreshKey by remember { mutableStateOf(0) }
     LifecycleResumeEffect(Unit) { refreshKey++; onPauseOrDispose { } }
-    LaunchedEffect(refreshKey) { recent = loadRecent(context) }
+    LaunchedEffect(refreshKey) { recent = loadRecent(context); recentLoaded = true }
 
     Column(
         Modifier
@@ -188,7 +192,16 @@ fun HomeScreen(
             )
         }
 
-        if (recent.isNotEmpty()) {
+        if (!recentLoaded && hasSaved) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SectionLabel(stringResource(R.string.recent_saves))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    repeat(3) {
+                        Box(Modifier.size(88.dp).clip(RoundedCornerShape(16.dp)).background(Studio.Chip))
+                    }
+                }
+            }
+        } else if (recent.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 SectionLabel(stringResource(R.string.recent_saves))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
