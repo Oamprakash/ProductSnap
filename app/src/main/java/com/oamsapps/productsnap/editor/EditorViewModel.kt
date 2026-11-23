@@ -1,5 +1,6 @@
 package com.oamsapps.productsnap.editor
 
+import com.oamsapps.productsnap.ui.isOnline
 import com.oamsapps.productsnap.R
 import android.app.Application
 import android.graphics.Bitmap
@@ -98,6 +99,10 @@ data class EditorState(
     val shareUris: List<Uri>? = null,
     val isLoading: Boolean = false,
     val isRemovingBackground: Boolean = false,
+    /** The first cutout on this install: the model is still being downloaded, so say so instead of "Cutting out". */
+    val isPreparingModel: Boolean = false,
+    /** [message] comes with a Try again action. */
+    val canRetry: Boolean = false,
     val isSaving: Boolean = false,
     val message: String? = null,
     /** Photo and cutout before each erase, crop or touch-up, newest last, for undo. */
@@ -211,14 +216,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun loadImage(uri: Uri) = viewModelScope.launch { load(uri) }
+    fun loadImage(uri: Uri): Job = viewModelScope.launch { load(uri, retry = { loadImage(uri) }) }
 
     /**
      * Opens a batch photo with the batch's look (marketplace, background, shape, light, sliders, shadow), so the
      * editor shows what batch saved rather than whatever the editor last used. Removes the background again when
      * batch did.
      */
-    fun loadImage(uri: Uri, look: BatchSettings) = viewModelScope.launch {
+    fun loadImage(uri: Uri, look: BatchSettings): Job = viewModelScope.launch {
         _state.update {
             it.copy(
                 background = look.background,
@@ -236,12 +241,13 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { if (it.background == style) it.copy(backgroundPhoto = bmp) else it }
             }
         }
-        if (load(uri) && (look.removeBackground || look.background == BackgroundStyle.Natural)) removeBackground()
+        if (load(uri, retry = { loadImage(uri, look) }) && (look.removeBackground || look.background == BackgroundStyle.Natural)) removeBackground()
     }
 
     /** Loads the photo keeping the current look; false if it couldn't be opened. */
-    private suspend fun load(uri: Uri): Boolean {
-        _state.update { it.copy(isLoading = true, message = null) }
+    private suspend fun load(uri: Uri, retry: () -> Unit): Boolean {
+        retryAction = null
+        _state.update { it.copy(isLoading = true, message = null, canRetry = false) }
         return runCatching { BitmapLoader.load(getApplication(), uri) }
             .onSuccess { bmp ->
                 val dark = runCatching { withContext(Dispatchers.Default) { PhotoCheck.isTooDark(bmp) } }.getOrDefault(false)
@@ -265,7 +271,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 prepare(bmp)
             }
-            .onFailure { _state.update { s -> s.copy(isLoading = false, message = str(R.string.open_photo_failed)) } }
+            .onFailure {
+                retryAction = retry
+                _state.update { s -> s.copy(isLoading = false, message = str(R.string.open_photo_failed), canRetry = true) }
+            }
             .isSuccess
     }
 
@@ -304,7 +313,8 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         viewModelScope.launch {
-            _state.update { it.copy(isRemovingBackground = true, message = null) }
+            retryAction = null
+            _state.update { it.copy(isRemovingBackground = true, isPreparingModel = !remover.isReady, message = null, canRetry = false) }
             val first = analyze(original).await()
             val result = first ?: run {
                 // The prepared run failed (e.g. the model was still downloading): try once more now.
@@ -319,9 +329,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     if (removal.runsOffEdge) Telemetry.event("photo_warning", "type" to PhotoWarning.RUNS_OFF_EDGE.name)
                     _state.update {
                         // Ignore a stale result if the photo changed while this was running.
-                        if (it.original !== original) it.copy(isRemovingBackground = false)
+                        if (it.original !== original) it.copy(isRemovingBackground = false, isPreparingModel = false)
                         else if (cut == null) it.copy(
-                            isRemovingBackground = false,
+                            isRemovingBackground = false, isPreparingModel = false,
                             message = if (removal.needsLook) str(R.string.cutout_wrong)
                             else str(R.string.no_product_found_try),
                         )
@@ -330,15 +340,22 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                             light = removal.light,
                             cutoutRunsOffEdge = removal.runsOffEdge,
                             useCutout = true,
-                            isRemovingBackground = false,
+                            isRemovingBackground = false, isPreparingModel = false,
                             warning = if (removal.runsOffEdge) PhotoWarning.RUNS_OFF_EDGE else it.warning,
                         )
                     }
                 }
                 .onFailure {
-                    Telemetry.event("cutout_failed", "reason" to it.javaClass.simpleName)
+                    val online = isOnline(getApplication())
+                    Telemetry.event("cutout_failed", "reason" to it.javaClass.simpleName, "online" to online, "first_run" to !remover.isReady)
+                    retryAction = { removeBackground() }
                     _state.update { s2 ->
-                        s2.copy(isRemovingBackground = false, message = str(R.string.model_not_ready))
+                        s2.copy(
+                            isRemovingBackground = false,
+                            isPreparingModel = false,
+                            message = str(if (online) R.string.model_not_ready else R.string.model_offline),
+                            canRetry = true,
+                        )
                     }
                 }
         }
@@ -402,7 +419,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     fun setContrast(v: Float) = _state.update { it.copy(adjustments = it.adjustments.copy(contrast = v)) }
     fun resetAdjustments() = _state.update { it.copy(adjustments = Adjustments()) }
     fun setLightStrength(strength: LightStrength) = _state.update { it.copy(lightStrength = strength) }
-    fun clearMessage() = _state.update { it.copy(message = null) }
+    fun clearMessage() = _state.update { it.copy(message = null, canRetry = false) }
+
+    private var retryAction: (() -> Unit)? = null
+
+    /** The Try again action on an error message: repeats what failed (opening the photo, or the cutout). */
+    fun retry() {
+        val action = retryAction ?: return
+        retryAction = null
+        Telemetry.event("retry_tapped")
+        action()
+    }
 
     private fun str(id: Int, vararg args: Any): String = getApplication<Application>().getString(id, *args)
 
@@ -522,10 +549,10 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         if (s.cutout != null) { enterRefine(original, s.cutout); return }
         // No cutout yet: try background removal first, so there's usually something to fix rather than redo.
         viewModelScope.launch {
-            _state.update { it.copy(isRemovingBackground = true, message = null) }
+            _state.update { it.copy(isRemovingBackground = true, isPreparingModel = !remover.isReady, message = null) }
             val removal = runCatching { remover.remove(original) }.getOrNull()
             val cut = removal?.cutout
-            _state.update { it.copy(isRemovingBackground = false, light = if (cut != null) removal?.light ?: it.light else it.light) }
+            _state.update { it.copy(isRemovingBackground = false, isPreparingModel = false, light = if (cut != null) removal?.light ?: it.light else it.light) }
             val now = _state.value
             if (now.original === original && !now.isInTool) enterRefine(original, cut)
         }

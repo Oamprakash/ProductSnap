@@ -1,5 +1,7 @@
 package com.oamsapps.productsnap.editor
 
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SnackbarDuration
 import androidx.annotation.StringRes
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -119,8 +121,18 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, onOpenBatch: () -> Uni
         vm.shareHandled()
         runCatching { context.startActivity(shareIntent(uris)) }
     }
+    val tryAgain = stringResource(R.string.try_again)
     LaunchedEffect(state.message) {
-        state.message?.let { snackbar.showSnackbar(it); vm.clearMessage() }
+        val message = state.message ?: return@LaunchedEffect
+        val retry = state.canRetry
+        val result = snackbar.showSnackbar(
+            message,
+            actionLabel = if (retry) tryAgain else null,
+            withDismissAction = retry,
+            duration = if (retry) SnackbarDuration.Indefinite else SnackbarDuration.Short,
+        )
+        vm.clearMessage()
+        if (result == SnackbarResult.ActionPerformed) vm.retry()
     }
     LaunchedEffect(state.paywallRequested) {
         if (state.paywallRequested) { onOpenPaywall(); vm.paywallShown() }
@@ -319,7 +331,7 @@ private fun StatusRow(state: EditorState) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         StagePill(state.marketplace?.let { stringResource(R.string.market_shape, it.label, shape(it)) } ?: if (state.squareCanvas) stringResource(R.string.square) else stringResource(R.string.photos_own_shape), dot = Studio.Accent)
         when {
-            state.isRemovingBackground -> StagePill(stringResource(R.string.cutting_out))
+            state.isRemovingBackground -> StagePill(stringResource(if (state.isPreparingModel) R.string.preparing_model else R.string.cutting_out))
             state.useCutout && state.isNatural -> StagePill(stringResource(R.string.real_background), dot = Studio.Good)
             state.useCutout -> StagePill(stringResource(R.string.background_removed), dot = Studio.Good)
         }

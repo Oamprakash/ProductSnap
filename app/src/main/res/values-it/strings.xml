@@ -354,6 +354,15 @@
     <string name="originals_unchanged">Le tue foto originali restano invariate.</string>
     <string name="tip_originals_title">I tuoi originali restano intatti</string>
     <string name="tip_originals_body">Le modifiche vengono sempre salvate come nuove foto in Pictures/ProductSnap. Le foto che scatti nell\'app vengono conservate anche senza modifiche in Pictures/ProductSnap/Originals.</string>
+    <string name="profit_label">Prossimamente?</string>
+    <string name="profit_title">Vuoi tenere traccia anche dei guadagni?</string>
+    <string name="profit_body">Salva ogni articolo con il prezzo pagato, segnalo come venduto e vedi il guadagno reale dopo commissioni e spedizione.</string>
+    <string name="profit_yes">Lo userei</string>
+    <string name="profit_no">Non fa per me</string>
+    <string name="profit_thanks">Grazie! Ci aiuta a decidere cosa fare dopo.</string>
+    <string name="try_again">Riprova</string>
+    <string name="preparing_model">Preparazione della rimozione dello sfondo… (solo la prima volta)</string>
+    <string name="model_offline">Nessuna connessione internet. La rimozione dello sfondo si scarica una volta al primo utilizzo. Connettiti e riprova.</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d foto salvate (con %2$d primo piano) in Pictures/ProductSnap</item>
         <item quantity="other">%1$d foto salvate (con %2$d primi piani) in Pictures/ProductSnap</item>

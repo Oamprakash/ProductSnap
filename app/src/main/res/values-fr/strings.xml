@@ -354,6 +354,15 @@
     <string name="originals_unchanged">Vos photos d\'origine ne sont pas modifiées.</string>
     <string name="tip_originals_title">Vos originaux restent intacts</string>
     <string name="tip_originals_body">Les retouches sont toujours enregistrées comme nouvelles photos dans Pictures/ProductSnap. Les photos prises dans l\'appli sont aussi conservées, sans retouche, dans Pictures/ProductSnap/Originals.</string>
+    <string name="profit_label">Bientôt ?</string>
+    <string name="profit_title">Suivre aussi vos bénéfices ?</string>
+    <string name="profit_body">Enregistrez chaque article avec son prix d\'achat, marquez-le vendu et voyez votre vrai bénéfice après frais de plateforme et d\'envoi.</string>
+    <string name="profit_yes">Ça m\'intéresse</string>
+    <string name="profit_no">Pas pour moi</string>
+    <string name="profit_thanks">Merci ! Ça nous aide à choisir la suite.</string>
+    <string name="try_again">Réessayer</string>
+    <string name="preparing_model">Préparation de la suppression du fond… (la première fois seulement)</string>
+    <string name="model_offline">Pas de connexion internet. La suppression du fond se télécharge une seule fois au premier usage. Connectez-vous et réessayez.</string>
     <plurals name="saved_with_closeups">
         <item quantity="one">%1$d photos enregistrées (dont %2$d gros plan) dans Pictures/ProductSnap</item>
         <item quantity="other">%1$d photos enregistrées (dont %2$d gros plans) dans Pictures/ProductSnap</item>
