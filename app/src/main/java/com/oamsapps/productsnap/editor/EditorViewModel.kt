@@ -216,14 +216,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun loadImage(uri: Uri) = viewModelScope.launch { load(uri, retry = { loadImage(uri) }) }
+    fun loadImage(uri: Uri): Job = viewModelScope.launch { load(uri, retry = { loadImage(uri) }) }
 
     /**
      * Opens a batch photo with the batch's look (marketplace, background, shape, light, sliders, shadow), so the
      * editor shows what batch saved rather than whatever the editor last used. Removes the background again when
      * batch did.
      */
-    fun loadImage(uri: Uri, look: BatchSettings) = viewModelScope.launch {
+    fun loadImage(uri: Uri, look: BatchSettings): Job = viewModelScope.launch {
         _state.update {
             it.copy(
                 background = look.background,
